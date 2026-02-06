@@ -3,7 +3,7 @@
 #include "HCSR04.h"
 
 TCRT5000 LeftSensor(13);
-TCRT5000 RightSensor(12);
+TCRT5000 RightSensor(2);
 HC_SR04 UltraSensor(7,8);
 
 L293D driver(5, 11, 6, 9, 3, 10);
@@ -48,11 +48,11 @@ void loop() {
     Serial.print(distance);
     Serial.println(" cm");
     
-    if (distance < 20 && distance > 0) {
+    if (distance < 5 && distance > 0) {
         Serial.println("*** OBSTACLE DETECTED ***");
         driver.brake();
     } else {
-        driver.forward();
+        driver.forward(255,255);
     }
     
     delay(100);

@@ -18,10 +18,10 @@ class HC_SR04{
     delayMicroseconds(2);
 
     digitalWrite(trig_, HIGH);
-    delayMicroseconds(20);
+    delayMicroseconds(10);
     digitalWrite(trig_, LOW);
 
-    float duration = pulseIn(echo_, HIGH);
+    float duration = pulseIn(echo_, HIGH,3000UL);
     return (duration*0.0343)/2;
   }
 
