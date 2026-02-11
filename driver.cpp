@@ -15,19 +15,55 @@
     pinMode(EN34_, OUTPUT);
   }
 
+  void L293D::norm(){
+    leftSpeed(255);
+    rightSpeed(255);
+    rightForward();
+    leftForward();
+  }
+  
+  void L293D::right_norm(){
+    rightSpeed(245);
+    rightForward();
+  }
+
+  void L293D::left_norm(){
+    leftSpeed(185);
+    leftForward();
+  }
+    void L293D::norm_offset(float s){
+    leftSpeed(155*s);
+    rightSpeed(225*s);
+    rightForward();
+    leftForward();
+  }
+
+  void L293D::setspeed(float s){
+    norm_offset(s);
+  }
+
+  void L293D::setLspeed(float s){
+    leftSpeed(155*s);
+    leftForward();
+  }
+
+  void L293D::setRspeed(float s){
+    rightSpeed(225*s);
+    rightForward();
+  }  
   void L293D::forward(){
     leftForward();
     rightForward();
   }
 
-  void L293D::forward(uint8_t s){
-    speed(s, s);
-    leftForward();
-    rightForward();
-  }
+  // void L293D::forward(uint8_t s){
+  //   speed(s, s);
+  //   leftForward();
+  //   rightForward();
+  // }
 
-  void L293D::forward(uint8_t left, uint8_t right){
-    speed(left, right);
+  void L293D::forward(uint8_t s){
+    speed(s);
     leftForward();
     rightForward();
   }
@@ -37,21 +73,21 @@
     rightBackward();
   }
 
+  // void L293D::backward(uint8_t s){
+  //   speed(s);
+  //   leftBackward();
+  //   rightBackward();
+  // }
+
   void L293D::backward(uint8_t s){
-    speed(s, s);
+    speed(s);
     leftBackward();
     rightBackward();
   }
 
-  void L293D::backward(uint8_t left, uint8_t right){
-    speed(left, right);
-    leftBackward();
-    rightBackward();
-  }
-
-  void L293D::brake(int deadtime){
-    leftBrake(deadtime);
-    rightBrake(deadtime);
+  void L293D::brake(){
+    leftBrake();
+    rightBrake();
   }
 
   void L293D::coast(){
@@ -59,9 +95,9 @@
     rightCoast();
   }
 
-  void L293D::speed(uint8_t left, uint8_t right){
-    leftSpeed(left);
-    rightSpeed(right);
+  void L293D::speed(uint8_t s){
+    leftSpeed(0.8*s);
+    rightSpeed(s);
   }
 
   void L293D::leftSpeed(uint8_t s){
@@ -90,21 +126,23 @@
     writeRight(LOW, LOW);
   }
 
-  void L293D::leftBrake(int deadtime){
+  void L293D::leftBrake(){
     //1. Set PWM to 100% duty cycle to give max braking (this isn't very elegent but probably grand)
     leftSpeed(255);
     //2. Set to brake mode
     writeLeft(HIGH,HIGH);
+    leftCoast();
     //3. Wait before setting speed to 0
     //delay(deadtime);
     //leftCoast();
   }
 
-  void L293D::rightBrake(int deadtime){
+  void L293D::rightBrake(){
     //1. Set PWM to 100% duty cycle to give max braking (this isn't very elegent but probably grand)
     rightSpeed(255);
     //2. Set to brake mode
     writeRight(HIGH, HIGH);
+    rightCoast();
     //3. Wait before setting speed to 0
     //delay(deadtime);
     //rightCoast();
@@ -117,7 +155,7 @@
     //2. Set new direction
     writeLeft(HIGH, LOW);//NOTE: this may need changing depending on orientation of motor
     //3. Reset speed
-    leftSpeed(leftSpeed_);
+    //leftSpeed(leftSpeed_);
   }
 
   void L293D::rightForward(){
@@ -127,7 +165,7 @@
     //2. Set new direction
     writeRight(HIGH, LOW);//NOTE: this may need changing depending on orientation of motor
     //3. Reset speed
-    rightSpeed(rightSpeed_);
+    //rightSpeed(rightSpeed_);
   }
 
   void L293D::leftBackward(){

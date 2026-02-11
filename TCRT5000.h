@@ -10,11 +10,12 @@ public:
         pinMode(pin_, INPUT);
     }
 
-    bool bright() const {
+    bool dark() const {
         return digitalRead(pin_) == HIGH;
     }
 
-    bool dark() const {
-        return !bright();
+    bool bright() const {
+        return !dark();
     }
+
 };

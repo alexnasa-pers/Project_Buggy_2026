@@ -22,18 +22,24 @@ public:
 
   /*********************DUAL CONTROLS*********************/
   //higher level methods for controlling both motors
-
+  void norm();
+  void left_norm();
+  void right_norm();
+  void norm_offset(float s);
+  void setspeed(float s);
+  void setRspeed(float s);
+  void setLspeed(float s);
   void forward();//keeps current speeds
   void forward(uint8_t speed);//brings both motors to one speed
-  void forward(uint8_t left, uint8_t right);//individual control over speeds
+  //void forward(uint8_t left, uint8_t right);//individual control over speeds
 
   void backward();
   void backward(uint8_t speed);
   void backward(uint8_t left, uint8_t right);
 
-  void brake(int deadtime = L293D_BRAKE_TIME);//This relies on a HIGH enable pin (to drive the braking) so waits for deadtime before setting coast()
+  void brake();//This relies on a HIGH enable pin (to drive the braking) so waits for deadtime before setting coast()
   void coast();
-  void speed(uint8_t left, uint8_t right);
+  void speed(uint8_t s);
 
 
   /*********************ONE-SIDED CONTROLS*********************/
@@ -50,8 +56,8 @@ public:
 
   //sets left/right motors to brake.
   //This relies on a HIGH enable pin (to drive the braking) so waits for deadtime before setting coast()
-  void leftBrake(int deadtime = L293D_BRAKE_TIME);
-  void rightBrake(int deadtime = L293D_BRAKE_TIME);
+  void leftBrake();
+  void rightBrake();
 
   //sets left/right motors forward
   void leftForward();
