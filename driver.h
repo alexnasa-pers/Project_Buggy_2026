@@ -27,6 +27,7 @@ public:
   void right_norm();
   void norm_offset(float s);
   void setspeed(float s);
+  void atGUIspeed(float s);
   void setRspeed(float s);
   void setLspeed(float s);
   void forward();//keeps current speeds
