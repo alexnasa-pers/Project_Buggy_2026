@@ -1,87 +1,136 @@
 #include "driver.h"
 #include "TCRT5000.h"
 #include "HCSR04.h"
+#include "WiFiS3.h"
+
+
+
 //CHUD-LI CODE!!!
+//IR sensor constructors
 TCRT5000 leftsensor(12);
 TCRT5000 rightsensor(2);
+//Ultrasonic Sensor constructor
 HC_SR04 UltraSensor(7,8);
+//obstacle detection state boolean
 bool obstacle = false;
+//Network info 
+char ssid[] = "Jamie's Pixel 8 Pro"; // your network SSID
+char pass[] = "GimmeDatBuggyUggy"; // your network password
 
+int status = WL_IDLE_STATUS;
 
+//Speed control over GUI
+int GUISpeed = 0;
+float SpeedVal = 0.0;
+//checking the ping
+bool CheckedPing = false;
+bool ctrl = false;
+bool debug_ctrl = false;
+String cmd = "";
 L293D driver(5, 11, 6, 9, 3, 10);
+WiFiServer server(5200);
+String msg = "";
 
+void DrivingLogic(){
+    if (leftsensor.bright() && rightsensor.dark()){
+       // Serial.println("***RIGHT DARK***");
+        driver.setLspeed(0.35*SpeedVal);
+        driver.setRspeed(0.75*SpeedVal);
+    }
+    if (leftsensor.dark() && rightsensor.bright()){
+       // Serial.println("***LEFT DARK***");
+        driver.setLspeed(0.75*SpeedVal);
+        driver.setRspeed(0.35*SpeedVal);
+    }
+    if (leftsensor.bright() && rightsensor.bright()){
+        //Serial.println("***ALL BRIGHT***");
+        driver.setLspeed(0*SpeedVal);
+        driver.setRspeed(0.5*SpeedVal);
+    }
+    if (leftsensor.dark() && rightsensor.dark()){
+       // Serial.println("***ALL DARK***");
+        driver.setspeed(0.8*SpeedVal);
+}
 
-
-
-
-
+}
 void setup() {
     Serial.begin(115200);
+    delay(2000);
+    Serial.println("Booted");
     driver.begin();
-   // attachInterrupt(digitalPinToInterrupt(8), L293D::brakeISR , RISING);
+    while (status != 3) { // Attempt to connect to AP
+        Serial.print("Attempting␣to␣connect␣to␣Network␣named:␣");
+        Serial.println(ssid);
+        Serial.println(status);
+        status = WiFi.begin(ssid, pass);
+        delay(10000); // give it time to connect
+    }
+    IPAddress ip = WiFi.localIP();
+    Serial.print("IP␣Address:␣"); 
+    Serial.println(ip);
+    server.begin();
+
+
 }
 
 void loop() {
+
+        
+    WiFiClient client = server.available ();
+    if ( client.connected ()) {
+        client.write("Hello Client\n");
+        cmd = client.readString();
+        if (cmd != ""){
+            Serial.println(cmd);
+            if (cmd == "START\n"){
+                Serial.println("im gonna go");
+            }
+        }
+    }
+
     float distance = UltraSensor.centimeters();
-    Serial.print("Distance: ");
-    Serial.print(distance);
-    Serial.println(" cm");
+    // Serial.print("Distance: ");
+    // Serial.print(distance);
+    // Serial.println(" cm");
 
     obstacle = (distance < 10 && distance > 0);  // Update every loop
     
     if (obstacle) {
-        Serial.println("*** OBSTACLE DETECTED ***");
+       // Serial.println("*** OBSTACLE DETECTED ***");
         driver.setspeed(0);
         driver.brake();
         return;  // Safe now
     }
-    // if (leftsensor.bright()){
-    //     driver.left_norm();
-    //     delay(500);
-    //     Serial.println("***LEFT BRIGHT***");
-    // }
-    // else if (leftsensor.dark()){
-    //     driver.leftBrake();
-    //     delay(500);
-    //     Serial.println("***LEFT DARK***");
-    // }
-    // if (rightsensor.bright()){
-    //     driver.right_norm();
-    //     delay(500);
-    //     Serial.println("***RIGHT BRIGHT***");
-    // }
-    // else if (rightsensor.dark()){
-    //     driver.rightBrake();
-    //     delay(500);
-    //     Serial.println("***RIGHT DARK***");
-    // }
-    driver.setspeed(0);
-    if (leftsensor.bright() && rightsensor.dark()){
-       // Serial.println("***RIGHT DARK***");
-        driver.setLspeed(0.35);
-        driver.setRspeed(0.75);
+
+    if (cmd == "START\n") { 
+        ctrl = true;
+        Serial.println("GUI Says GO!");
     }
-    if (leftsensor.dark() && rightsensor.bright()){
-       // Serial.println("***LEFT DARK***");
-        driver.setLspeed(0.75);
-        driver.setRspeed(0.35);
+    else if (cmd == "STOP\n") {
+        driver.brake();
+        ctrl = false ;
+        Serial.println("GUI SAYS STOP!");
     }
-    if (leftsensor.bright() && rightsensor.bright()){
-        //Serial.println("***ALL BRIGHT***");
-        driver.setLspeed(0);
-        driver.setRspeed(0.5);
+    else if (cmd.startsWith("SPEED:")) {
+          GUISpeed = cmd.substring(6).toFloat();  // Parse Speed from string
+          SpeedVal = (float(GUISpeed)*0.01);
+          Serial.print("GUI SAYS GO!!! AT : ");
+          Serial.print(GUISpeed);
+          Serial.println("% Speed");
+          ctrl = true;
+          driver.atGUIspeed(SpeedVal);
     }
-    if (leftsensor.dark() && rightsensor.dark()){
-       // Serial.println("***ALL DARK***");
-        driver.setspeed(0.8);
+          
+    
+
       
     }
     
-}
+  
 
     
 
 
 
 
-
+    
