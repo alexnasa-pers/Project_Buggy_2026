@@ -48,9 +48,6 @@
     norm_offset(s);
   }
 
-  void L293D::atGUIspeed(float s){
-    norm_offset(s);
-  }
 
   void L293D::setLspeed(float s){
     leftSpeed(155*s);
