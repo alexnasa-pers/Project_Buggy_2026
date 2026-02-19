@@ -32,24 +32,41 @@
     leftForward();
   }
     void L293D::norm_offset(float s){
-    leftSpeed(155*s);
-    rightSpeed(225*s);
+    leftSpeed(255*abs(s));
+    rightSpeed(255*abs(s));
+    if (s>0){
     rightForward();
     leftForward();
+    }
+    else if (s<0){
+    rightBackward();
+    leftBackward();
+    }
   }
 
   void L293D::setspeed(float s){
     norm_offset(s);
   }
 
+
   void L293D::setLspeed(float s){
-    leftSpeed(155*s);
+    leftSpeed(155*abs(s));
+    if (s>0){
     leftForward();
+    }
+    else if (s<0){
+    leftBackward();
+    }
   }
 
   void L293D::setRspeed(float s){
-    rightSpeed(225*s);
+    rightSpeed(225*abs(s));
+    if (s>0){
     rightForward();
+    }
+    else if (s<0){
+    rightBackward();
+    }
   }  
   void L293D::forward(){
     leftForward();
