@@ -39,16 +39,16 @@ WiFiClient client;
 unsigned long lastStatusTime = 0;
 const unsigned long statusInterval = 300;
 bool sendObst = false;
-int direction = 0; //1=forward , 2=left , 3= right 4= stopped 5 = circling 
+int direction = 0; //1=forward , 2=right , 3= left 4= stopped 5 = circling 
 int last_direction = 0 ;
 //main driving logic loop
 void DrivingLogic(){
-    //turns left if left is bright
+    //turns right if left is bright
     if (leftsensor.bright() && rightsensor.dark()){
         driver.setLspeed(0.75);
         driver.setRspeed(0.35);
         direction = 2 ;
-        if (direction != last_direction){client.println("Turning Left");}
+        if (direction != last_direction){client.println("Turning Right");}
     //    Serial.println("direction: ");
     //    Serial.println(direction);
     //    Serial.println("\n");
@@ -58,12 +58,12 @@ void DrivingLogic(){
        
         
     }
-    //turns right if right is bright
+    //turns left if right is bright
     if (leftsensor.dark() && rightsensor.bright()){
         driver.setLspeed(0.35);
         driver.setRspeed(0.75);
         direction = 3;
-        if (direction != last_direction){client.println("Turning Right");}
+        if (direction != last_direction){client.println("Turning Left");}
     //     Serial.println("direction: ");
     //    Serial.println(direction);
     //    Serial.println("\n");
@@ -107,7 +107,7 @@ void DrivingLogic(float SpeedVal){
         driver.setLspeed(0.75*SpeedVal);
         driver.setRspeed(0.35*SpeedVal);
         direction = 2 ;
-        if (direction != last_direction){client.println("Turning Left");}
+        if (direction != last_direction){client.println("Turning Right");}
     //     Serial.println("direction: ");
     //    Serial.println(direction);
     //    Serial.println("\n");
@@ -120,7 +120,7 @@ void DrivingLogic(float SpeedVal){
         driver.setLspeed(0.35*SpeedVal);
         driver.setRspeed(0.75*SpeedVal);
         direction = 3;
-        if (direction != last_direction){client.println("Turning Right");}
+        if (direction != last_direction){client.println("Turning Left");}
     //     Serial.println("direction: ");
     //    Serial.println(direction);
     //    Serial.println("\n");
