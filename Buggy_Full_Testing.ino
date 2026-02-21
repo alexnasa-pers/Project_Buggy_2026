@@ -45,8 +45,8 @@ int last_direction = 0 ;
 void DrivingLogic(){
     //turns left if left is bright
     if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.35);
-        driver.setRspeed(0.75);
+        driver.setLspeed(0.75);
+        driver.setRspeed(0.35);
         direction = 2 ;
         if (direction != last_direction){client.println("Turning Left");}
     //    Serial.println("direction: ");
@@ -60,8 +60,8 @@ void DrivingLogic(){
     }
     //turns right if right is bright
     if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(0.75);
-        driver.setRspeed(0.35);
+        driver.setLspeed(0.35);
+        driver.setRspeed(0.75);
         direction = 3;
         if (direction != last_direction){client.println("Turning Right");}
     //     Serial.println("direction: ");
@@ -104,8 +104,8 @@ last_direction = direction;
 //speed variable version of main loop
 void DrivingLogic(float SpeedVal){
     if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.35*SpeedVal);
-        driver.setRspeed(0.75*SpeedVal);
+        driver.setLspeed(0.75*SpeedVal);
+        driver.setRspeed(0.35*SpeedVal);
         direction = 2 ;
         if (direction != last_direction){client.println("Turning Left");}
     //     Serial.println("direction: ");
@@ -117,8 +117,8 @@ void DrivingLogic(float SpeedVal){
         
     }
     if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(0.75*SpeedVal);
-        driver.setRspeed(0.35*SpeedVal);
+        driver.setLspeed(0.35*SpeedVal);
+        driver.setRspeed(0.75*SpeedVal);
         direction = 3;
         if (direction != last_direction){client.println("Turning Right");}
     //     Serial.println("direction: ");
