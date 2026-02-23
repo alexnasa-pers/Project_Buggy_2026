@@ -5,3 +5,4 @@ update #3 : the wheels on the buggy go round and round
 update #4 : chud-li is going beast mode
 update #5 : flip reset soon 
 update #6 : billions must drive
+update #7 🤷‍♂️ : chud-li bronze medal inbound
