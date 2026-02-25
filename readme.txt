@@ -6,3 +6,5 @@ update #4 : chud-li is going beast mode
 update #5 : flip reset soon 
 update #6 : billions must drive
 update #7 🤷‍♂️ : chud-li bronze medal inbound
+update #8 : the wheels on the buggy no longer go round and round
+update #9 : chud-li has become sentient
