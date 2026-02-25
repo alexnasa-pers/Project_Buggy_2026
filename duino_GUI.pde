@@ -41,7 +41,7 @@ void setup() {
      .setSize(sliderW, sliderH)
      .setRange(-100, 100)
      .setValue(0)
-     .setNumberOfTickMarks(11)
+     .setNumberOfTickMarks(23)
      .setTriggerEvent(Slider.RELEASE); 
 
   
@@ -85,7 +85,7 @@ void draw() {
           direction_display = "Stopped";
         }
            }
-      else if(!response.equals("Hello Client") && (response.equals("Going Forward") || response.equals("Going Left") || response.equals("Going Right") || response.equals("Circling"))){
+      else if(!response.equals("Hello Client") && (response.equals("Going Forward") || response.equals("Turning Left") || response.equals("Turning Right") || response.equals("Circling"))){
           direction_display = response;
         }
       }
