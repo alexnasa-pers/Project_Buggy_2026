@@ -75,44 +75,4 @@ void draw() {
     String response = client.readStringUntil('\n');                   
     if (response != null) {
       response = response.trim();
-      println("Raw:", response);
 
-      if (!response.equals("Hello Client")){
-        if ((response.equals("Obstacle Detected") ||
-           response.equals("No Obstacles Detected"))) {
-               obst_display = response;   // update every time we get a message
-        if (obst_display.equals("Obstacle Detected")){
-          direction_display = "Stopped";
-        }
-           }
-      else if(!response.equals("Hello Client") && (response.equals("Going Forward") || response.equals("Turning Left") || response.equals("Turning Right") || response.equals("Circling"))){
-          direction_display = response;
-        }
-      }
-    }
-  }
-}
-
-void startBuggy() {
-  if (client != null && client.active()) {
-    client.write("START\n");
-    status = "Sent START...";
-  }
-}
-
-void stopBuggy() {
-  if (client != null && client.active()) {
-    client.write("STOP\n");
-    status = "Sent STOP...";
-  }
-  direction_display = "Stopped";
-}
-
-
-void speed(int val) {  // ADD THIS
-  speed = val;
-  if (client.active()) {
-    client.write("SPEED:" + (int)val + "\n");
-    status = "Speed: " + (int)val;
-  }
-}
