@@ -116,35 +116,39 @@ void draw() {
     }
   }
 }
-
-void startBuggy() {
-  if (client != null && client.active()) {
-    client.write("START\n");
-    status = "Sent START...";
-  }
-}
-
-void stopBuggy() {
-  if (client != null && client.active()) {
-    client.write("STOP\n");
-    status = "Sent STOP...";
-  }
-  direction_display = "Stopped";
-}
-
-
-void speed(int val) {  // ADD THIS
-  speed = val;
-  if (client.active()) {
-    client.write("SPEED:" + (int)val + "\n");
-    status = "Speed: " + (int)val;
-  }
-}
-
+//
+// void startBuggy() {
+//   if (client != null && client.active()) {
+//     client.write("START\n");
+//     status = "Sent START...";
+//   }
+// }
+//
+// void stopBuggy() {
+//   if (client != null && client.active()) {
+//     client.write("STOP\n");
+//     status = "Sent STOP...";
+//   }
+//   direction_display = "Stopped";
+// }
+//
+//
+// void speed(int val) {  // ADD THIS
+//   speed = val;
+//   if (client.active()) {
+//     client.write("SPEED:" + (int)val + "\n");
+//     status = "Speed: " + (int)val;
+//   }
+// }
+//
 void Submit() {
   textval = cp5.get(Textfield.class, "Input a command").getText();
   print(" Command = " + textval);
   println();
 
+  if (client != null && client.active()) {
+    client.write(textval);
+    status = "Sent command from textbox";
+  }
   cp5.get(Textfield.class, "Input a command").clear();
 }

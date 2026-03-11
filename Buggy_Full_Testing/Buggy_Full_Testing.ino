@@ -30,6 +30,8 @@ bool ctrl = true;
 bool said_hello = false;
 //Strings received from processing
 String cmd = "";
+//distance to travel
+String value = "";
 //Driver class constructor 
 L293D driver(5, 11, 6, 9, 3, 10);
 //Opens a server on port 5200
@@ -41,122 +43,7 @@ const unsigned long statusInterval = 300;
 bool sendObst = false;
 int direction = 0; //1=forward , 2=left , 3= right 4= stopped 5 = circling 
 int last_direction = 0 ;
-//main driving logic loop
-void DrivingLogic(){
-    //turns left if left is bright
-    if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.75);
-        driver.setRspeed(0.35);
-        direction = 2 ;
-        if (direction != last_direction){client.println("Turning Left");}
-    //    Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-       
-        
-    }
-    //turns right if right is bright
-    if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(0.35);
-        driver.setRspeed(0.75);
-        direction = 3;
-        if (direction != last_direction){client.println("Turning Right");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-        
-    }
-    //circles if both are bright
-    if (leftsensor.bright() && rightsensor.bright()){
-        driver.setLspeed(0);
-        driver.setRspeed(0.5);
-        direction = 5;
-        if (direction != last_direction){client.println("Circling");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-        
-    }
-    //straight ahead if both are dark
-    if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8);
-        direction = 1 ;
-        if (direction != last_direction){client.println("Going Forward");}
-    //    Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
 
-}
-last_direction = direction;
-}
-//speed variable version of main loop
-void DrivingLogic(float SpeedVal){
-    if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.75*SpeedVal);
-        driver.setRspeed(0.35*SpeedVal);
-        direction = 2 ;
-        if (direction != last_direction){client.println("Turning Left");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-        
-    }
-    if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(0.35*SpeedVal);
-        driver.setRspeed(0.75*SpeedVal);
-        direction = 3;
-        if (direction != last_direction){client.println("Turning Right");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-
-    }
-   
-    if (leftsensor.bright() && rightsensor.bright()){
-        driver.setLspeed(0*SpeedVal);
-        driver.setRspeed(0.5*SpeedVal);
-        direction = 5;
-        if (direction != last_direction){client.println("Circling");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-        
-    }
-    if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8*SpeedVal);
-             direction = 1 ;
-        if (direction != last_direction){client.println("Going Forward");}
-    //     Serial.println("direction: ");
-    //    Serial.println(direction);
-    //    Serial.println("\n");
-    //    Serial.println("last direction: ");
-    //    Serial.println(last_direction);
-    //    Serial.println("\n");
-
-}
-last_direction = direction;
-}
 void setup() {
     //open serial port at baud rate 115200
     Serial.begin(115200);
@@ -185,10 +72,6 @@ void setup() {
 
 void loop() {
     // if true, go , basically 
-    if (ctrl){
-        DrivingLogic(SpeedVal);
-        //Serial.println("ctrl true, im movin");
-    }
     // sets up wifi client so laptop can connect
     if (!client){client = server.available ();}
     
@@ -203,30 +86,32 @@ void loop() {
 
     if (client.available() > 0) {      // <-- only read when data exists
         cmd = client.readStringUntil('\n');
+        cmd.trim();
+        value = cmd.substring(1);
+        float value = value.toFloat();
         Serial.print("Got: ");
         Serial.println(cmd);
-            // laptop sends START\n buggy goes
-        if (cmd == "START") { 
-            ctrl = true;
-            //Serial.println("GUI Says GO!");
+        Serial.println(" to distance ");
+        Serial.println(value);
+        Serial.println("cm\n");
+        
+        switch(cmd) {
+          case 'F':
+            //do some stuff
+            Serial.println("Imagine chud lee is going forward");
+            break;
+          case 'B':
+            //tbc 
+            Serial.println("Imagine he go backwards");
+            break;
+          case 'R':
+            //Turn right by x degrees
+            break;
+          case 'L':
+            //turn left by x degrees
+            break;
         }
-        // laptop sends STOP\n buggy stops 
-        else if (cmd == "STOP") {
-            DrivingLogic(0);
-            driver.brake();
-            direction = 0;
-            ctrl = false ;
-        // Serial.println("GUI SAYS STOP!");
-        }
-        // laptop sends SPEED:(NUM), buggy gets the num and turns it to a speed and then goes at that speed yo
-        else if (cmd.startsWith("SPEED:")) {
-            GUISpeed = cmd.substring(6).toFloat();  // Parse Speed from string
-            SpeedVal = (float(GUISpeed)*0.01);
-            // Serial.print("GUI SAYS GO!!! AT : ");
-            // Serial.print(GUISpeed);
-            //Serial.println("% Speed");
-            DrivingLogic(SpeedVal);
-        }
+        
     }
   }
     //stores distance from  ultrasonic 
