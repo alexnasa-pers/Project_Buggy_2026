@@ -32,8 +32,8 @@
     leftForward();
   }
     void L293D::norm_offset(float s){
-    leftSpeed(255*abs(s));
-    rightSpeed(255*abs(s));
+    leftSpeed(200*abs(s));
+    rightSpeed(200*abs(s));
     if (s>0){
     rightForward();
     leftForward();
