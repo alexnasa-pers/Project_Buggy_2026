@@ -4,6 +4,7 @@
 #include "WiFiS3.h"
 
 
+
 //bron yallej version
 //CHUD-LI CODE!!!
 //IR sensor constructors
@@ -14,8 +15,8 @@ HC_SR04 UltraSensor(7,8);
 //obstacle detection state boolean
 bool obstacle = false;
 //Network info 
-char ssid[] = "Jamie"; // your network SSID
-char pass[] = "GimmeDatBuggyUggy"; // your network password
+char ssid[] = "Alexiiphone"; // your network SSID
+char pass[] = "alexboiq"; // your network password
 //Wifi status, saves as int 0-6 0 = not connected 3 = connected 4 = bad credentials
 int status = WL_IDLE_STATUS;
 
@@ -30,10 +31,11 @@ bool ctrl = true;
 bool said_hello = false;
 //Strings received from processing
 String cmd = "";
+//distance to travel
+
 //Driver class constructor 
 L293D driver(5, 11, 6, 9, 3, 10);
 //Opens a server on port 5200
-
 WiFiServer server(5200);
 WiFiClient client;
 //obstacle detection send timing
@@ -41,95 +43,7 @@ unsigned long lastStatusTime = 0;
 const unsigned long statusInterval = 300;
 bool sendObst = false;
 int direction = 0; //1=forward , 2=left , 3= right 4= stopped 5 = circling 
-int last_direction = 10 ;
-//main driving logic loop
-void DrivingLogic(){
-    //turns left if left is bright
-    if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.6);
-        driver.setRspeed(1.3);
-        direction = 2 ;
-
-   
-       
-
-    }
-    //turns right if right is bright
-    if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(1.3);
-        driver.setRspeed(0.6);
-        direction = 3;
-        
-
-        
-    }
-    //circles if both are bright
-    if (leftsensor.bright() && rightsensor.bright()){
-        driver.setLspeed(0);
-        driver.setRspeed(0.5);
-        direction = 5;
-
-        
-    }
-    //straight ahead if both are dark
-    if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8);
-        direction = 1 ;
- 
-}
-last_direction = direction;
-}
-//speed variable version of main loop
-void DrivingLogic(float SpeedVal){
-    if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.6*SpeedVal);
-        driver.setRspeed(1.3*SpeedVal);
-        direction = 2 ;
-  
-    }
-    if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(1.3*SpeedVal);
-        driver.setRspeed(0.4*SpeedVal);
-        direction = 3;
-
-    }
-   
-    if (leftsensor.bright() && rightsensor.bright()){
-        driver.setLspeed(0*SpeedVal);
-        driver.setRspeed(0.5*SpeedVal);
-        direction = 5;
-
-        
-    }
-    if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8*SpeedVal);
-        direction = 1 ;
-  
-
-}
-if (direction != 4 && !obstacle && cmd != "STOP"){last_direction = direction;}
-
-}
-
-void SendDirection(){
-    if (cmd != "STOP"){
-        if (direction == 1){
-            client.println("Going Forward");
-        }
-        else if (direction == 2){
-            client.println("Turning Left");
-        }
-        else if (direction == 3){
-            client.println("Turning Right");
-        }
-        else if (direction == 4){
-            client.println("Stopped");
-        }
-        else if (direction == 5){
-            client.println("Circling");
-        }
-    }
-}
+int last_direction = 0 ;
 
 void setup() {
     //open serial port at baud rate 115200
@@ -158,21 +72,7 @@ void setup() {
 }
 
 void loop() {
-    if (!obstacle && cmd != "STOP"){
-        ctrl = true;
-    }
     // if true, go , basically 
-    if (ctrl){
-        DrivingLogic(SpeedVal);
-        //Serial.println("ctrl true, im movin");
-    }
-    if (sendObst){
-        SendDirection();
-        Serial.print("Direction");
-        Serial.println(direction);
-        Serial.print("last Direction");
-        Serial.println(last_direction);
-    }
     // sets up wifi client so laptop can connect
     if (!client){client = server.available ();}
     
@@ -187,40 +87,51 @@ void loop() {
 
     if (client.available() > 0) {      // <-- only read when data exists
         cmd = client.readStringUntil('\n');
+        cmd.trim();
+        String temp_string = cmd.substring(1);
+        float parameter = temp_string.toFloat();
         Serial.print("Got: ");
         Serial.println(cmd);
-            // laptop sends START\n buggy goes
-        if (cmd == "START") { 
-            ctrl = true;
-            //Serial.println("GUI Says GO!");
+
+        switch(cmd.charAt(0)) {
+          case 'F':
+            //do some stuff
+            client.print("Going Forward");
+            Serial.print("Going forward to distance ");
+            Serial.print(parameter);
+            Serial.println("cm");
+            Serial.println("Imagine chud lee is going forward");
+            break;
+          case 'B':
+            //tbc 
+            client.print("Going Backwards");
+            Serial.print("Going Backwards to distance ");
+            Serial.print(parameter);
+            Serial.println("cm");
+            Serial.println("(Imagine he go backwards)");
+            break;
+          case 'R':
+            //Turn right by x degrees
+            client.print("Going Right");
+            Serial.print("Turning right at angle ");
+            Serial.print(parameter);
+            Serial.println(" degrees");
+            break;
+          case 'L':
+            //turn left by x degrees
+            client.println("Turning Left");
+            Serial.print("Turning left at angle ");
+            Serial.print(parameter);
+            Serial.println(" degrees");
+            break;
         }
-        // laptop sends STOP\n buggy stops 
-        else if (cmd == "STOP") {
-            DrivingLogic(0);
-            driver.brake();
-            Serial.println("Direction 4");
-            direction = 4;
-            ctrl = false ;
-            //Serial.println("GUI SAYS STOP!");
-        }
-        // laptop sends SPEED:(NUM), buggy gets the num and turns it to a speed and then goes at that speed yo
-        else if (cmd.startsWith("SPEED:")) {
-            GUISpeed = cmd.substring(6).toFloat();  // Parse Speed from string
-            SpeedVal = (float(GUISpeed)*0.01);
-            // Serial.print("GUI SAYS GO!!! AT : ");
-            // Serial.print(GUISpeed);
-            //Serial.println("% Speed");
-            DrivingLogic(SpeedVal);
-        }
+        
     }
   }
     //stores distance from  ultrasonic 
     float distance = UltraSensor.centimeters();
-    if (sendObst){
-        Serial.println("Distance: ");
-        Serial.println(distance);
-    }
-    
+    // Serial.print("Distance: ");
+    // Serial.print(distance);
     // Serial.println(" cm");
     // boolean for obstacle detection 
     obstacle = (distance < 20 && distance > 0);  // Update every loop
@@ -243,16 +154,15 @@ void loop() {
            // Serial.println("*** OBSTACLE DETECTED ***");
             }
         
-        DrivingLogic(0);
+        
         driver.brake();
-        //Serial.println("direction 4 in obstacle loop");
-        direction = 4;
+        direction = 0;
         ctrl = false ;
-        return; 
+       // return; 
         }
   
          // Safe now
-    else  if (!obstacle  && cmd == "START") {
+    else  if (!obstacle) {
         ctrl = true;
     if(sendObst){
     client.println("No Obstacles Detected\n");
