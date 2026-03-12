@@ -19,3 +19,7 @@ void DigiEncoder::StopAt(float traveldist) {
     driver.setspeed(0);
   }
 }
+
+float DigiEncoder::DistancedTravelled(int Count) {
+  return ((tofloat(Count)/8)*20.4);
+}

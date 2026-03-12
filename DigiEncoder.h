@@ -16,6 +16,7 @@ public:
   void EncBegin();
   void Increase();
   void StopAt(float traveldist);
+  float DistanceTravelled(int Count);
 };
 
 
