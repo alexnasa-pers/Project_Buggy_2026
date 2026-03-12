@@ -4,6 +4,7 @@
 #include "WiFiS3.h"
 
 
+
 //bron yallej version
 //CHUD-LI CODE!!!
 //IR sensor constructors
@@ -14,8 +15,8 @@ HC_SR04 UltraSensor(7,8);
 //obstacle detection state boolean
 bool obstacle = false;
 //Network info 
-char ssid[] = "Jamie"; // your network SSID
-char pass[] = "GimmeDatBuggyUggy"; // your network password
+char ssid[] = "Alexiiphone"; // your network SSID
+char pass[] = "alexboiq"; // your network password
 //Wifi status, saves as int 0-6 0 = not connected 3 = connected 4 = bad credentials
 int status = WL_IDLE_STATUS;
 
@@ -31,7 +32,7 @@ bool said_hello = false;
 //Strings received from processing
 String cmd = "";
 //distance to travel
-String value = "";
+
 //Driver class constructor 
 L293D driver(5, 11, 6, 9, 3, 10);
 //Opens a server on port 5200
@@ -87,28 +88,41 @@ void loop() {
     if (client.available() > 0) {      // <-- only read when data exists
         cmd = client.readStringUntil('\n');
         cmd.trim();
-        value = cmd.substring(1);
-        float value = value.toFloat();
+        String temp_string = cmd.substring(1);
+        float parameter = temp_string.toFloat();
         Serial.print("Got: ");
         Serial.println(cmd);
-        Serial.println(" to distance ");
-        Serial.println(value);
-        Serial.println("cm\n");
-        
-        switch(cmd) {
+
+        switch(cmd.charAt(0)) {
           case 'F':
             //do some stuff
+            client.print("Going Forward");
+            Serial.print("Going forward to distance ");
+            Serial.print(parameter);
+            Serial.println("cm");
             Serial.println("Imagine chud lee is going forward");
             break;
           case 'B':
             //tbc 
-            Serial.println("Imagine he go backwards");
+            client.print("Going Backwards");
+            Serial.print("Going Backwards to distance ");
+            Serial.print(parameter);
+            Serial.println("cm");
+            Serial.println("(Imagine he go backwards)");
             break;
           case 'R':
             //Turn right by x degrees
+            client.print("Going Right");
+            Serial.print("Turning right at angle ");
+            Serial.print(parameter);
+            Serial.println(" degrees");
             break;
           case 'L':
             //turn left by x degrees
+            client.println("Turning Left");
+            Serial.print("Turning left at angle ");
+            Serial.print(parameter);
+            Serial.println(" degrees");
             break;
         }
         
@@ -140,7 +154,7 @@ void loop() {
            // Serial.println("*** OBSTACLE DETECTED ***");
             }
         
-        DrivingLogic(0);
+        
         driver.brake();
         direction = 0;
         ctrl = false ;
