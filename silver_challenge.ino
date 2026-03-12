@@ -1,28 +1,27 @@
 #include <Arduino.h>
 #include "driver.h"
 
-
 // Motor driver
+L293D driver(8, 9, 10, 2, 5, 11);
 
-L293D driver(5, 11, 6, 9, 3, 10);
+// Encoder pins
+const int ENC_DATA_PIN  = A0;
+const int ENC_CLOCK_PIN = A4;
+const int ENC_LATCH_PIN = A3;
+const int ENC_RESET_PIN = A1;
 
-
-// Silver Challenge encoder
-
-const int ENC_DATA_PIN  = A0;   
-const int ENC_CLOCK_PIN = A4;   
-const int ENC_LATCH_PIN = A3;  
-const int ENC_RESET_PIN = A1;  
-
-
+// Wheel constants
 const float WHEEL_DIAMETER_CM = 6.5;
 const int PULSES_PER_REV = 8;
 const float WHEEL_CIRCUMFERENCE_CM = 3.1416 * WHEEL_DIAMETER_CM;
 const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;
 
-float stopOffsetCm = 0.0;
+// Calibration values
+float stopOffsetCm = 2.5;
+int rightTurn90Time = 500;
+int leftTurn90Time  = 500;
 
-// Encoder functions
+bool ranTest = false;
 
 void encoderBegin() {
   pinMode(ENC_DATA_PIN, INPUT);
@@ -56,20 +55,19 @@ float countToDistanceCm(byte count) {
 
 int distanceToCount(float targetDistanceCm) {
   float correctedDistance = targetDistanceCm - stopOffsetCm;
-  if (correctedDistance < 0.0) {
-    correctedDistance = 0.0;
-  }
+  if (correctedDistance < 0.0) correctedDistance = 0.0;
   return (int)(correctedDistance / DISTANCE_PER_PULSE_CM + 0.5);
 }
 
 void stopBuggy() {
   driver.brake();
-  delay(80);
+  delay(100);
   driver.coast();
 }
 
 void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
   int targetCount = distanceToCount(targetDistanceCm);
+  unsigned long startTime = millis();
 
   resetCounter();
   driver.forward(speedValue);
@@ -88,12 +86,51 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
       Serial.println("Target reached");
       break;
     }
+
+    if (millis() - startTime > 5000) {
+      stopBuggy();
+      Serial.println("Timeout reached");
+      break;
+    }
+
+    delay(10);
   }
 }
 
-// Test control
+void turnRight90() {
+  Serial.println("Turning right 90");
+  driver.setLspeed(1.0);
+  driver.setRspeed(-1.0);
+  delay(rightTurn90Time);
+  stopBuggy();
+}
 
-bool ranTest = false;
+void turnLeft90() {
+  Serial.println("Turning left 90");
+  driver.setLspeed(-1.0);
+  driver.setRspeed(1.0);
+  delay(leftTurn90Time);
+  stopBuggy();
+}
+
+void runSilverChallenge() {
+  moveForwardDistance(30.0, 180);
+  delay(500);
+
+  turnRight90();
+  delay(500);
+
+  moveForwardDistance(20.0, 180);
+  delay(500);
+
+  turnLeft90();
+  delay(500);
+
+  moveForwardDistance(40.0, 180);
+  delay(500);
+
+  Serial.println("Silver challenge sequence complete");
+}
 
 void setup() {
   Serial.begin(9600);
@@ -112,10 +149,6 @@ void setup() {
 void loop() {
   if (!ranTest) {
     ranTest = true;
-
-    Serial.println("Moving forward 30 cm...");
-    moveForwardDistance(30.0, 180);
-
-    Serial.println("Test complete");
+    runSilverChallenge();
   }
 }
