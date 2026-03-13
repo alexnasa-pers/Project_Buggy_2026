@@ -25,9 +25,10 @@ const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;
 
 // Calibration values
 float stopOffsetCm = 2.5;
-int rightTurn90Time = 500;
-int leftTurn90Time  = 500;
-
+int rightTurn90Time = 675;
+int leftTurn90Time  = 690;
+float fractional_turn_time_1 = rightTurn90Time/9;
+float fractional_turn_time_2 = leftTurn90Time/9;
 bool ranTest = false;
 
 //controls  the "hello client" message 
@@ -113,19 +114,19 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
   }
 }
 
-void turnRight90() {
+void turnRight(float turn_time) {
   Serial.println("Turning right 90");
   driver.setLspeed(1.0);
   driver.setRspeed(-1.0);
-  delay(rightTurn90Time);
+  delay(turn_time );
   stopBuggy();
 }
 
-void turnLeft90() {
+void turnLeft(float turn_time) {
   Serial.println("Turning left 90");
   driver.setLspeed(-1.0);
   driver.setRspeed(1.0);
-  delay(leftTurn90Time);
+  delay(turn_time);
   stopBuggy();
 }
 
@@ -133,13 +134,13 @@ void runSilverChallenge() {
   moveForwardDistance(30.0, 180);
   delay(500);
 
-  turnRight90();
+  turnRight(rightTurn90Time);
   delay(500);
 
   moveForwardDistance(20.0, 180);
   delay(500);
 
-  turnLeft90();
+  turnLeft(leftTurn90Time);
   delay(500);
 
   moveForwardDistance(40.0, 180);
@@ -215,19 +216,21 @@ void loop() {
         break;
       case 'R':
         //Turn right by x degrees
+        parameter = parameter/10;
         client.print("Going Right");
         Serial.print("Turning right at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
-        turnRight90();
+        turnRight(parameter*fractional_turn_time_1);
         break;
       case 'L':
         //turn left by x degrees
+        parameter = parameter/10;
         client.println("Turning Left");
         Serial.print("Turning left at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
-        turnLeft90();
+        turnLeft(parameter*fractional_turn_time_2);
         break;
     }
         
