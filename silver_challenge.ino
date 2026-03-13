@@ -18,8 +18,8 @@ const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;
 
 // Calibration values
 float stopOffsetCm = 2.5;
-int rightTurn90Time = 500;
-int leftTurn90Time  = 500;
+int rightTurn90Time = 550;
+int leftTurn90Time  = 530;
 
 bool ranTest = false;
 
@@ -61,8 +61,6 @@ int distanceToCount(float targetDistanceCm) {
 
 void stopBuggy() {
   driver.brake();
-  delay(100);
-  driver.coast();
 }
 
 void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
@@ -120,14 +118,29 @@ void runSilverChallenge() {
   turnRight90();
   delay(500);
 
-  moveForwardDistance(20.0, 180);
+  moveForwardDistance(30.0, 180);
   delay(500);
 
   turnLeft90();
   delay(500);
 
-  moveForwardDistance(40.0, 180);
+  moveForwardDistance(30.0, 180);
   delay(500);
+
+  turnLeft90();
+  delay(500);
+
+  moveForwardDistance(30.0, 180);
+  delay(500);
+
+  turnRight90();
+  delay(500);
+
+  moveForwardDistance(30.0, 180);
+  delay(500);
+  
+
+  
 
   Serial.println("Silver challenge sequence complete");
 }
