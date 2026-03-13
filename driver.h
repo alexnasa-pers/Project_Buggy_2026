@@ -41,7 +41,7 @@ public:
   void brake();//This relies on a HIGH enable pin (to drive the braking) so waits for deadtime before setting coast()
   void coast();
   void speed(uint8_t s);
-
+  void stopBuggy();
 
   /*********************ONE-SIDED CONTROLS*********************/
   //For finer control over single motor
