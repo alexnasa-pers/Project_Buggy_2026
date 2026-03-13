@@ -11,8 +11,15 @@ int speed;
 String obstacles = "";
 String obst_display = "";
 String direction_display = "";
+
+//alexs variable that he put in (into the code) (11/03/2026) (larping dont stop)
+String textval = "";
+
 void setup() {
-  size(500, 400);
+  size(600, 400);
+
+  PFont font = createFont("arial", 12);
+
   cp5 = new ControlP5(this);
   int btnW = 150, btnH = 80, btnY = 120;
   // Big green START button
@@ -43,6 +50,22 @@ void setup() {
      .setValue(0)
      .setNumberOfTickMarks(23)
      .setTriggerEvent(Slider.RELEASE); 
+
+  cp5.addTextfield("Input a command")
+     .setPosition(100, 225)
+       .setSize(300, 40)
+         .setFont(createFont("arial", 12))
+           .setAutoClear(false)
+             ;
+
+  cp5.addBang("Submit")
+    .setPosition(400, 225)
+      .setSize(80, 40)
+        .setFont(font)
+          .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER)
+            ;
+
+  textFont(font);
 
   
   client = new Client(this, "10.94.44.124", 5200);  // duino IP
@@ -115,4 +138,12 @@ void speed(int val) {  // ADD THIS
     client.write("SPEED:" + (int)val + "\n");
     status = "Speed: " + (int)val;
   }
+}
+
+void Submit() {
+  textval = cp5.get(Textfield.class, "Input a command").getText();
+  print(" Command = " + textval);
+  println();
+
+  cp5.get(Textfield.class, "Input a command").clear();
 }
