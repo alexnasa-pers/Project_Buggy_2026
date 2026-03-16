@@ -12,7 +12,6 @@ String obstacles = "";
 String obst_display = "";
 String direction_display = "";
 
-//alexs variable that he put in (into the code) (11/03/2026) (larping dont stop)
 String textval = "";
 
 void setup() {
