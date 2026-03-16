@@ -27,8 +27,8 @@ const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;
 
 // Calibration values
 float stopOffsetCm = 2.5;
-int rightTurn90Time = 675;
-int leftTurn90Time  = 690;
+int rightTurn90Time = 455;
+int leftTurn90Time  = 445;
 float fractional_turn_time_1 = rightTurn90Time/9;
 float fractional_turn_time_2 = leftTurn90Time/9;
 bool ranTest = false;
@@ -39,7 +39,7 @@ bool said_hello = false;
 String cmd = "";
 //Digital or Analogue Control booleans
 bool DigiControl = false;
-bool AnaControl = !DigiControl;
+bool AnaControl = true;
 //default driver speed
 const int DEFAULT_SPEED = 180;
 //mode string
@@ -47,6 +47,12 @@ String mode = "";
 //Opens a server on port 5200
 WiFiServer server(5200);
 WiFiClient client;
+
+void EncoderISR(){
+  DigiEncoder.Increase();
+  Serial.println("ISR Called");
+}
+
 
 void encoderBegin() {
   pinMode(ENC_DATA_PIN, INPUT);
@@ -94,6 +100,7 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
   driver.forward(speedValue);
 
   while (true) {
+    //Serial.println("im in moveFOrwardDistance WHile loop");
     byte count = readCounter();
     float distanceCm = countToDistanceCm(count);
 
@@ -101,14 +108,16 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
     Serial.print(count);
     Serial.print("  Distance(cm): ");
     Serial.println(distanceCm);
+  
 
-    if (count >= targetCount) {
+
+    if ((count >= targetCount) && AnaControl) {
       driver.stopBuggy();
       Serial.println("Target reached");
       break;
     }
 
-    if (millis() - startTime > 5000) {
+    if (millis() - startTime > 30000) {
       driver.stopBuggy();
       Serial.println("Timeout reached");
       break;
@@ -118,19 +127,19 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
   }
 }
 
-void turnRight(float turn_time) {
+void turnRight() {
   Serial.println("Turning right 90");
   driver.setLspeed(1.0);
   driver.setRspeed(-1.0);
-  delay(turn_time );
+  delay(rightTurn90Time);
   driver.stopBuggy();
 }
 
-void turnLeft(float turn_time) {
+void turnLeft() {
   Serial.println("Turning left 90");
   driver.setLspeed(-1.0);
   driver.setRspeed(1.0);
-  delay(turn_time);
+  delay(leftTurn90Time);
   driver.stopBuggy();
 }
 
@@ -138,13 +147,13 @@ void runSilverChallenge() {
   moveForwardDistance(30.0, 180);
   delay(500);
 
-  turnRight(rightTurn90Time);
+  turnRight();
   delay(500);
 
   moveForwardDistance(20.0, 180);
   delay(500);
 
-  turnLeft(leftTurn90Time);
+  turnLeft();
   delay(500);
 
   moveForwardDistance(40.0, 180);
@@ -154,6 +163,7 @@ void runSilverChallenge() {
 }
 
 void setup() {
+  attachInterrupt(digitalPinToInterrupt(2), EncoderISR, RISING);
   Serial.begin(115200);
   //2sec delay for stability
   delay(2000);
@@ -173,15 +183,16 @@ void setup() {
   driver.begin();
   encoderBegin();
   resetCounter();
-  driver.setspeed(DEFAULT_SPEED);
+  
   Serial.println("Silver Challenge test starting");
   Serial.print("Distance per pulse (cm): ");
   Serial.println(DISTANCE_PER_PULSE_CM);
 
-  delay(2000);
+
 }
 
 void loop() {
+  resetCounter();
   //if (!ranTest) {
   //  ranTest = true;
   //  runSilverChallenge();
@@ -199,16 +210,28 @@ void loop() {
     Serial.println(cmd);
     mode = cmd.substring(5);
     if (mode == "analogue"){
+      // Serial.println(AnaControl);
+      // Serial.println(DigiControl);
+
       DigiControl = false;
+      AnaControl = true;
+      // Serial.println(AnaControl);
+      // Serial.println(DigiControl);
       Serial.println("Analogue mode");
     }
     if (mode == "digital"){
+      // Serial.println(AnaControl);
+      // Serial.println(DigiControl);
+
       DigiControl = true;
+      AnaControl = false;
+
+      // Serial.println(AnaControl);
+      // Serial.println(DigiControl);
+
       Serial.println("Digital mode");
     }
-    if (cmd.substring(0,8) == "Command: "){
-    cmd = cmd.substring(8);
-    }
+
     String temp_string = cmd.substring(1);
     float parameter = temp_string.toFloat();
     
@@ -246,13 +269,13 @@ void loop() {
         break;
       case 'R':
         //Turn right by x degrees
-        parameter = parameter/10;
+        //parameter = parameter/10;
         client.print("Going Right");
         Serial.print("Turning right at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
         if (AnaControl){
-          turnRight(parameter*fractional_turn_time_1);
+          turnRight();
         }
         else if (DigiControl){
           DigiEncoder.RightTurn(parameter);
@@ -260,13 +283,13 @@ void loop() {
         break;
       case 'L':
         //turn left by x degrees
-        parameter = parameter/10;
+       // parameter = parameter/10;
         client.println("Turning Left");
         Serial.print("Turning left at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
         if (AnaControl){
-          turnLeft(parameter*fractional_turn_time_2);
+          turnLeft();
         }
         else if (DigiControl){
           DigiEncoder.LeftTurn(parameter);

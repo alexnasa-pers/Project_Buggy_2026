@@ -90,7 +90,8 @@ void L293D::forward() {
 }
 
 void L293D::forward(uint8_t s) {
-  speed(s);
+  leftSpeed(s);
+  rightSpeed(s*1.075);
   leftForward();
   rightForward();
 }
@@ -107,8 +108,17 @@ void L293D::backward(uint8_t s) {
 }
 
 void L293D::brake() {
-  leftBrake();
-  rightBrake();
+  if (leftBrakeFirst){
+    leftBrake();
+    rightBrake();
+    leftBrakeFirst = false;
+  }
+  else if (!leftBrakeFirst){
+    rightBrake();
+    leftBrake();
+    leftBrakeFirst = true;
+  }
+
 }
 
 void L293D::coast() {
@@ -129,12 +139,12 @@ void L293D::stopBuggy(){
 
 /*********************ONE-SIDED CONTROLS*********************/
 
-void L293D::leftSpeed(uint8_t s) {
+void L293D::leftSpeed(float s) {
   analogWrite(EN12_, s);
   leftSpeed_ = s;
 }
 
-void L293D::rightSpeed(uint8_t s) {
+void L293D::rightSpeed(float s) {
   analogWrite(EN34_, s);
   rightSpeed_ = s;
 }
@@ -152,14 +162,14 @@ void L293D::rightCoast() {
 void L293D::leftBrake() {
   leftSpeed(255);
   writeLeft(HIGH, HIGH);
-  delay(50);
+  delay(10);
   leftCoast();
 }
 
 void L293D::rightBrake() {
   rightSpeed(255);
   writeRight(HIGH, HIGH);
-  delay(50);
+  delay(10);
   rightCoast();
 }
 

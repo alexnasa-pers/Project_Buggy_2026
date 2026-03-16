@@ -14,10 +14,17 @@ void DigiEncoder::Increase() {
 }
 
 void DigiEncoder::StopAt(float traveldist,float s) {
-  driver.setspeed(s);
-  GoalCount = ((traveldist / CIRCUMFERENCE) * 8); // 8 pulses per rev
-  if (Count >= GoalCount) {
-    driver.setspeed(0);
+  driver.forward(s);
+  GoalCount = (((traveldist)/ CIRCUMFERENCE) * 8); // 8 pulses per rev
+  // if ( Count > (LastCount+2)){
+  while(Count < GoalCount){
+    Serial.println(GoalCount);
+    Serial.println(Count);
+  }
+  // }
+  if (Count >= (GoalCount)) {
+    driver.stopBuggy();
+    Count = 0;
   }
 }
 

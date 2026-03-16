@@ -7,6 +7,7 @@ private:
   int Pin;
   
   int GoalCount;
+  int LastCount;
   const float CIRCUMFERENCE = 20.4;
   const int rightTurn90Time = 675;
   const int leftTurn90Time  = 690;

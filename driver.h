@@ -8,6 +8,7 @@
 //Assumes A1-A2 is left motor, A3-A4 is right
 class L293D {
 private:
+  bool leftBrakeFirst = true;
   //digital control pins
   uint8_t A1_, A2_, A3_, A4_;
   //Enable pins must be PWM capable (e.g. 3, 5, 6, 9, 10, 11)
@@ -48,8 +49,8 @@ public:
 
   //Sets the duty cycle for PWM. 
   //Takes 0-255, 255 being 100% duty cycle (max speed)
-  void leftSpeed(uint8_t speed);
-  void rightSpeed(uint8_t speed);
+  void leftSpeed(float speed);
+  void rightSpeed(float speed);
 
   //sets left/right PWM to 0 and sets digital pins to LOW
   void leftCoast();
