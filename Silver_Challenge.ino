@@ -2,14 +2,17 @@
 #include "driver.h"
 #include "WiFiS3.h"
 #include "DigiEncoder.h"
+#include "HCSR04.h"
 
 // Motor driver
 L293D driver(8, 9, 10, 2, 5, 11);
+//Ultrasonic Sensor constructor
+HC_SR04 UltraSensor(13,12);
 //DigitalEncoder
-DigiEncoder DigiEncoder(2, driver);
+DigiEncoder DigiEncoder(3, driver);
 //Network info
-char ssid[] = "Jamie"; // your network SSID
-char pass[] = "GimmeDatBuggyUggy"; // your network password
+char ssid[] = "Alexiiphone"; // your network SSID
+char pass[] = "alexboiq"; // your network password
 //Wifi status, saves as int 0-6 0 = not connected 3 = connected 4 = bad credentials
 int status = WL_IDLE_STATUS;
 
@@ -22,13 +25,25 @@ const int ENC_RESET_PIN = A1;
 // Wheel constants
 const float WHEEL_DIAMETER_CM = 6.5;
 const int PULSES_PER_REV = 8;
-const float WHEEL_CIRCUMFERENCE_CM = 3.1416 * WHEEL_DIAMETER_CM;
-const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;
+const float WHEEL_CIRCUMFERENCE_CM = 20.4;
+const float DISTANCE_PER_PULSE_CM = 2.55;
+
+//Speed and distance
+volatile unsigned long lastPulseTime = 0;
+volatile unsigned long pulseInterval = 0;
+volatile int oldCount = 0;
+volatile float GlobalDistance = 0;
+volatile float instantSpeed = 0;
+volatile bool obstacle = false;
+//debugging
+volatile float MoveStartDistance = 0;  // add this global
+
+volatile bool isFired = false;
 
 // Calibration values
-float stopOffsetCm = 2.5;
-int rightTurn90Time = 455;
-int leftTurn90Time  = 445;
+float stopOffsetCm = 2.0;
+int rightTurn90Time = 480;
+int leftTurn90Time  = 475;
 float fractional_turn_time_1 = rightTurn90Time/9;
 float fractional_turn_time_2 = leftTurn90Time/9;
 bool ranTest = false;
@@ -49,8 +64,24 @@ WiFiServer server(5200);
 WiFiClient client;
 
 void EncoderISR(){
+  unsigned long now = micros();
+  //int currentCount = DigiEncoder.Count;
+  byte count = readCounter();
+  if (lastPulseTime != 0) {
+    pulseInterval = now - lastPulseTime;
+    if (pulseInterval > 0) {
+      float timeSec = pulseInterval / 1000000.0;
+      instantSpeed = DISTANCE_PER_PULSE_CM / timeSec;
+    }
+  } 
+
+  //GlobalDistance += (count - oldCount)*DISTANCE_PER_PULSE_CM;
+  
+  //oldCount = count;
+
   DigiEncoder.Increase();
-  Serial.println("ISR Called");
+  isFired = true;
+  lastPulseTime = now;
 }
 
 
@@ -63,6 +94,45 @@ void encoderBegin() {
   digitalWrite(ENC_CLOCK_PIN, LOW);
   digitalWrite(ENC_LATCH_PIN, LOW);
   digitalWrite(ENC_RESET_PIN, LOW);
+}
+
+void StopAt(float traveldist,float s) {
+  driver.forward(s);
+  DigiEncoder.GoalCount = (((traveldist)/ WHEEL_CIRCUMFERENCE_CM) * 8); // 8 pulses per rev
+  // if ( Count > (LastCount+2)){
+  unsigned long startTime = millis();
+
+  while(true) {
+
+    delay(20);
+    Serial.print("Count: ");
+    Serial.print(DigiEncoder.Count);
+    Serial.print(" / ");
+    Serial.println(DigiEncoder.GoalCount);
+    client.println("DIST:" + String(GlobalDistance));
+    client.println("SPD:" + String(instantSpeed));
+    float distance = UltraSensor.centimeters();
+    obstacle = (distance < 10 && distance > 0); 
+    if (obstacle) {
+      driver.stopBuggy();
+      client.println("Obstacle Detected");
+      break;
+    }
+    
+    if (DigiEncoder.Count >= (DigiEncoder.GoalCount)) {
+      driver.stopBuggy();
+      DigiEncoder.Count = 0;
+      Serial.println("Count reached");
+      break;
+    }
+    
+    if (millis() - startTime > 20000) {
+      driver.stopBuggy();
+      Serial.println("Timeout reached");
+      break;
+    
+    }
+  }
 }
 
 void resetCounter() {
@@ -90,30 +160,51 @@ int distanceToCount(float targetDistanceCm) {
   return (int)(correctedDistance / DISTANCE_PER_PULSE_CM + 0.5);
 }
 
-
-
-void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
+void moveForwardDistance(float targetDistanceCm, int speedValue) {
   int targetCount = distanceToCount(targetDistanceCm);
   unsigned long startTime = millis();
-
+  //MoveStartDistance = GlobalDistance;
   resetCounter();
   driver.forward(speedValue);
 
   while (true) {
-    //Serial.println("im in moveFOrwardDistance WHile loop");
     byte count = readCounter();
     float distanceCm = countToDistanceCm(count);
+    
+    //float totalDistance = MoveStartDistance + distanceCm; 
+
+    float ultra_distance = UltraSensor.centimeters();
+    bool obstacle = (ultra_distance < 10 && ultra_distance > 0);
+
+    if (obstacle) {
+      driver.stopBuggy();
+      client.println("Obstacle Detected");
+
+      // Wait here until obstacle is gone
+      while (true) {
+        float check = UltraSensor.centimeters();
+        if (check >= 10 || check <= 0) {
+          break;
+        }
+        delay(100);
+      }
+
+      // Resume at the SAME speed, keeping the SAME count
+      driver.forward(speedValue);
+    }
 
     Serial.print("Count: ");
     Serial.print(count);
-    Serial.print("  Distance(cm): ");
-    Serial.println(distanceCm);
-  
 
-
-    if ((count >= targetCount) && AnaControl) {
+ 
+    client.println("SPD:" + String(instantSpeed));
+    if (count >= targetCount) {
+      GlobalDistance += (count + oldCount)*(DISTANCE_PER_PULSE_CM);
+      client.println("DIST:" + String(GlobalDistance));
       driver.stopBuggy();
       Serial.println("Target reached");
+
+      
       break;
     }
 
@@ -122,9 +213,10 @@ void moveForwardDistance(float targetDistanceCm, uint8_t speedValue) {
       Serial.println("Timeout reached");
       break;
     }
-
+    
     delay(10);
   }
+  
 }
 
 void turnRight() {
@@ -163,7 +255,6 @@ void runSilverChallenge() {
 }
 
 void setup() {
-  attachInterrupt(digitalPinToInterrupt(2), EncoderISR, RISING);
   Serial.begin(115200);
   //2sec delay for stability
   delay(2000);
@@ -182,17 +273,31 @@ void setup() {
   server.begin();
   driver.begin();
   encoderBegin();
+  //debugging
+  pinMode(3, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(3), EncoderISR, RISING);
   resetCounter();
   
   Serial.println("Silver Challenge test starting");
   Serial.print("Distance per pulse (cm): ");
   Serial.println(DISTANCE_PER_PULSE_CM);
+  Serial.print("Circumference: ");
+Serial.println(WHEEL_CIRCUMFERENCE_CM);
+Serial.print("GoalCount for 20cm: ");
+Serial.println((20.0 / WHEEL_CIRCUMFERENCE_CM) * 8);
 
 
 }
 
 void loop() {
-  resetCounter();
+  if(isFired) {
+    Serial.println("ISR fired, Count: " + String(DigiEncoder.Count));
+    isFired = false;
+  }
+  //Serial.println(UltraSensor.centimeters());
+  //Serial.println(digitalRead(3));
+  //delay(100);
+  //resetCounter();
   //if (!ranTest) {
   //  ranTest = true;
   //  runSilverChallenge();
@@ -243,7 +348,7 @@ void loop() {
     switch(cmd.charAt(0)) {
       case 'F':
         //do some stuff
-        client.print("Going Forward");
+        //client.print("Going Forward");
         Serial.print("Going forward to distance ");
         Serial.print(parameter);
         Serial.println("cm");
@@ -251,7 +356,7 @@ void loop() {
           moveForwardDistance(parameter, 180);
         }
         else if(DigiControl){
-          DigiEncoder.StopAt(parameter, DEFAULT_SPEED);
+          StopAt(parameter, DEFAULT_SPEED);
         }
         break;
       case 'B':
@@ -264,7 +369,7 @@ void loop() {
           moveForwardDistance(parameter, -180);
         }
         else if (DigiControl){
-          DigiEncoder.StopAt(parameter, (-1*(DEFAULT_SPEED)));
+          StopAt(parameter, (-1*(DEFAULT_SPEED)));
         }
         break;
       case 'R':
@@ -274,12 +379,14 @@ void loop() {
         Serial.print("Turning right at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
-        if (AnaControl){
-          turnRight();
-        }
+        //if (AnaControl){
+        turnRight();
+
+        //turnRight(parameter*fractional_turn_time_1);
+        /*}
         else if (DigiControl){
-          DigiEncoder.RightTurn(parameter);
-        }
+          DigiEncoder.RightTurn();
+        }*/
         break;
       case 'L':
         //turn left by x degrees
@@ -288,12 +395,12 @@ void loop() {
         Serial.print("Turning left at angle ");
         Serial.print(parameter);
         Serial.println(" degrees");
-        if (AnaControl){
-          turnLeft();
-        }
+        //if (AnaControl){
+        turnLeft();
+        /*}
         else if (DigiControl){
-          DigiEncoder.LeftTurn(parameter);
-        }
+          DigiEncoder.LeftTurn();
+        }*/
         break;
     }
         
