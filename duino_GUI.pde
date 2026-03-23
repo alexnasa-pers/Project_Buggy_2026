@@ -4,28 +4,40 @@
 import processing.net.*;
 import controlP5.*;
 
+Chart newChart;
 Client client;
 ControlP5 cp5;
 String status = "Connect to Arduino IP";
 int speed;
+//int[] numbers = {10, 20 , 30};
+
+int[] reference_speed_array = new int[60];
+float[] actual_speed = new float[60];
+int[] time = new int[60];
+//maybe change to a string later depending on if we want more to parse 
+//or not
+float sse = 0;
 String obstacles = "";
 String obst_display = "";
 String direction_display = "";
-String distance_travelled = "0";
+String reference_speed = "0";
 String current_speed = "0";
 String textval = "";
 //switch
 ToggleSwitch modeSwitch;
 
 void setup() {
-  size(800, 600);
+  size(800, 700);
 
   PFont font = createFont("arial", 12);
 
   cp5 = new ControlP5(this);
   int btnW = 150, btnH = 80, btnY = 120;
+  for (int i = 0; i < time.length; i++) {
+  time[i] = i;
+  }
   // Big green START button
-  cp5.addButton("startBuggy")
+  /*cp5.addButton("startBuggy")
      .setCaptionLabel("START")
      .setPosition(((width - 2.25*btnW)/2), ((height/3)-btnY))
      .setSize(150, 80)
@@ -41,27 +53,41 @@ void setup() {
      .setColorBackground(color(200, 0, 0))
      .setColorForeground(color(255, 0, 0))
      .setColorActive(color(150, 0, 0));
+  */
+  newChart = cp5.addChart("data")
+                .setPosition(width/4, height/4)
+                .setSize(width/2, height/3)
+                .setRange(-50, time.length)
+                .setView(Chart.LINE)
+                .setStrokeWeight(1.5)
+                .setColorCaptionLabel(color(255))
+                ;
+  newChart.getColor().setBackground(color(255));
+  newChart.addDataSet("numbers");
+  newChart.setData("numbers", new float[100]);
+  
   int centerX = width / 2;
   int sliderW = 300, sliderH = 40;
   
   // Speed: -100 reverse → 0 stop → 100 forward
-  cp5.addSlider("speed")
+  /*cp5.addSlider("speed")
      .setPosition(width/3.5,height/1.5)
      .setSize(sliderW, sliderH)
      .setRange(-100, 100)
      .setValue(0)
      .setNumberOfTickMarks(23)
      .setTriggerEvent(Slider.RELEASE); 
-
+  */
+  
   cp5.addTextfield("Input a command")
-     .setPosition(width/4, height/1.25)
+     .setPosition(width/4, height-100)
        .setSize(300, 40)
          .setFont(createFont("arial", 12))
            .setAutoClear(false)
              ;
 
   cp5.addBang("Submit")
-    .setPosition((width/4)+300, height/1.25)
+    .setPosition((width/4)+300, height-100)
       .setSize(80, 40)
         .setFont(font)
           .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER)
@@ -70,10 +96,10 @@ void setup() {
   textFont(font);
 
   
-  client = new Client(this, "172.20.10.9", 5200);  // duino IP
+  //client = new Client(this, "172.20.10.9", 5200);  // duino IP
   
   modeSwitch = new ToggleSwitch(
-  width/2, height/1.8,  // position
+  width/2, height-250,  // position
   80, 30,                   // width, height
   "analogue", "digital",
   false                     // start on analogue
@@ -82,7 +108,7 @@ void setup() {
 
 void draw() {
   //check for null client
-  if (client == null || !client.active()) {
+  /*if (client == null || !client.active()) {
     status = "Reconnecting...";
     try {
       client = new Client(this, "172.20.10.9", 5200);
@@ -90,26 +116,27 @@ void draw() {
       client = null;  
     }
   }
-
+  */
   background(50);
   fill(255);
   textSize(20);
   textAlign(CENTER, CENTER);
   text("Buggy Control", width/2, 40);
+  newChart.push("numbers", (2*sin(frameCount*0.1)*10));
   
    modeSwitch.draw();
 
-  text(status, width/2, height/2 );
+  text(status, width/2, height-200 );
   text(obst_display, width/2, height-800);
   text(direction_display, width/2, height-900);
-  text("Distance : ", 250, height - 360);
-  text(distance_travelled, width/2, height - 360);
-  text("cm", 463, height - 360);
-  text("Current Speed : ", 250, height - 335);
-  text(current_speed, width/2, height - 335);
-  text("cm/second", 500, height - 335);
+  text("Reference : ", 250, height - 175);
+  text(reference_speed, width/2, height - 175);
+  text("cm/second", 500, height - 175);
+  text("Actual speed : ", 250, height - 150);
+  text(current_speed, width/2, height - 150);
+  text("cm/second", 500, height - 150);
  
- if (client != null && client.active() && client.available() > 0) {  
+ /*if (client != null && client.active() && client.available() > 0) {  
     String response = client.readStringUntil('\n');
     if (response != null) {
       response = response.trim();
@@ -135,6 +162,7 @@ void draw() {
       }
     }
   }
+  */
 }
 
 void startBuggy() {
@@ -151,6 +179,7 @@ void stopBuggy() {
   }
   direction_display = "Stopped";
 }
+
 
 
 void speed(int val) {  // ADD THIS
