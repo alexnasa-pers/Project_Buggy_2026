@@ -10,3 +10,4 @@ update #8 : the wheels on the buggy no longer go round and round
 update #9 : chud-li has become sentient
 update #10 : chud-li has passed away rip
 update #11 : chud-li calls for a new sacrifice
+update #12 : chud-li go full speed all time
