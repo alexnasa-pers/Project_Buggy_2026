@@ -3,6 +3,7 @@
 
 import processing.net.*;
 import controlP5.*;
+import grafica.*;
 
 Chart newChart;
 Client client;
@@ -11,9 +12,11 @@ String status = "Connect to Arduino IP";
 int speed;
 //int[] numbers = {10, 20 , 30};
 
-int[] reference_speed_array = new int[60];
-float[] actual_speed = new float[60];
-int[] time = new int[60];
+float[] reference_speed_array = new float;
+float[] actual_speed = new float;
+float[] time = new float[60];
+float[] time_stamps = new float;
+String[] legend_strings = {"Reference", "Buggy Speed"};
 //maybe change to a string later depending on if we want more to parse 
 //or not
 float sse = 0;
@@ -23,12 +26,21 @@ String direction_display = "";
 String reference_speed = "0";
 String current_speed = "0";
 String textval = "";
+GPlot plot;
+int nPoints = 100;
+int lastStepTime = 0;
+int step = 0;
+int count = 0;
+int new_count = 0;
+boolean submitted = false;
+ 
+GPointsArray points = new GPointsArray(nPoints);
 //switch
 ToggleSwitch modeSwitch;
 
 void setup() {
-  size(800, 700);
-
+  size(800, 1000);
+  background(150);
   PFont font = createFont("arial", 12);
 
   cp5 = new ControlP5(this);
@@ -36,35 +48,22 @@ void setup() {
   for (int i = 0; i < time.length; i++) {
   time[i] = i;
   }
-  // Big green START button
-  /*cp5.addButton("startBuggy")
-     .setCaptionLabel("START")
-     .setPosition(((width - 2.25*btnW)/2), ((height/3)-btnY))
-     .setSize(150, 80)
-     .setColorBackground(color(0, 200, 0))
-     .setColorForeground(color(0, 255, 0))
-     .setColorActive(color(0, 150, 0));
+
+  plot = new GPlot(this, width/9, height - 925, width - 200, 650);
   
-  // Big red STOP button
-  cp5.addButton("stopBuggy")
-     .setCaptionLabel("STOP")
-     .setPosition((width + btnW/4)/2, ((height/3)-(btnY)))
-     .setSize(150, 80)
-     .setColorBackground(color(200, 0, 0))
-     .setColorForeground(color(255, 0, 0))
-     .setColorActive(color(150, 0, 0));
-  */
-  newChart = cp5.addChart("data")
-                .setPosition(width/4, height/4)
-                .setSize(width/2, height/3)
-                .setRange(-50, time.length)
-                .setView(Chart.LINE)
-                .setStrokeWeight(1.5)
-                .setColorCaptionLabel(color(255))
-                ;
-  newChart.getColor().setBackground(color(255));
-  newChart.addDataSet("numbers");
-  newChart.setData("numbers", new float[100]);
+  // Set the plot title and the axis labels
+
+  plot.setTitleText("Buggy speed in response to the given profile");
+  plot.getXAxis().setAxisLabelText("Time (seconds)");
+  plot.getYAxis().setAxisLabelText("Speed cm/s");
+  plot.setBgColor(50);
+  plot.setLabelBgColor(50);
+  plot.setAllFontProperties("arial", 255, 16);
+  plot.setXLim(0, 60);
+  plot.setYLim(0, 50);
+  
+  // Add the points
+  plot.setPoints(points);
   
   int centerX = width / 2;
   int sliderW = 300, sliderH = 40;
@@ -118,11 +117,23 @@ void draw() {
   }
   */
   background(50);
+  plot.beginDraw();
+  plot.drawBackground();
+  plot.drawBox();
+  plot.drawXAxis();
+  plot.drawYAxis();
+  plot.drawTitle();
+  plot.drawPoints();
+  plot.drawGridLines(2);
+  //plot.drawLegend(legend_strings, time, actual_speed);
+  plot.endDraw();
+  
+  
   fill(255);
   textSize(20);
   textAlign(CENTER, CENTER);
   text("Buggy Control", width/2, 40);
-  newChart.push("numbers", (2*sin(frameCount*0.1)*10));
+  //newChart.push("numbers", (2*sin(frameCount*0.1)*10));
   
    modeSwitch.draw();
 
@@ -163,7 +174,30 @@ void draw() {
     }
   }
   */
+  
+  if (submitted) {
+    for (int i = 0; i < textval.length; i++) {
+      if (textval.charAt(i) == ';')
+         count++;
+    }
+    String[] pairs = textval.split("; ");
+    for (int i = 0; i < pairs.length; i++) {
+      String[] numbers = pairs[i].split(" ");
+      time_stamps[i] = Float.parseFloat(numbers[0]);
+      reference_speed_array[i] = Float.parseFloat(numbers[1]);
+    }
+  }
+  if (millis() - lastStepTime > 1000) {
+      for (i = 0; i < time_stamps.length; i++) {
+        while (new_count < time_stamps[i]) 
+          //plot.addPoint
+          new_count++;
+      }      
+      lastStepTime = millis();
+  
+  }
 }
+
 
 void startBuggy() {
   if (client != null && client.active()) {
@@ -195,6 +229,7 @@ void Submit() {
   client.write(textval + "\n");
   print(" Command = " + textval);
   println();
+  submitted = true;
 
   cp5.get(Textfield.class, "Input a command").clear();
 }
