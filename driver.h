@@ -25,7 +25,7 @@ public:
   void norm();
   void left_norm();
   void right_norm();
-  void norm_offset(float s);
+  
   void setspeed(float s);
   void atGUIspeed(float s);
   void setRspeed(float s);
@@ -41,7 +41,7 @@ public:
   void brake();//This relies on a HIGH enable pin (to drive the braking) so waits for deadtime before setting coast()
   void coast();
   void speed(uint8_t s);
-
+  void stopBuggy();
 
   /*********************ONE-SIDED CONTROLS*********************/
   //For finer control over single motor

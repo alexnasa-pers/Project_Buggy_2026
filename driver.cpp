@@ -31,9 +31,9 @@
     leftSpeed(185);
     leftForward();
   }
-    void L293D::norm_offset(float s){
-    leftSpeed(200*abs(s));
-    rightSpeed(200*abs(s));
+    void L293D::setspeed(float s){
+    leftSpeed(abs(s));
+    rightSpeed(abs(s));
     if (s>0){
     rightForward();
     leftForward();
@@ -44,9 +44,7 @@
     }
   }
 
-  void L293D::setspeed(float s){
-    norm_offset(s);
-  }
+
 
 
   void L293D::setLspeed(float s){
@@ -204,6 +202,14 @@
     //3. Reset speed
     rightSpeed(rightSpeed_);
   }
+
+
+
+void L293D::stopBuggy(){
+  brake();
+  delay(100);
+  coast();
+}
 
 /************PRIVATE METHODS************/
   void L293D::writeLeft(bool a1, bool a2) const{
