@@ -12,10 +12,10 @@ String status = "Connect to Arduino IP";
 int speed;
 //int[] numbers = {10, 20 , 30};
 
-float[] reference_speed_array = new float;
-float[] actual_speed = new float;
+float[] reference_speed_array = new float[60];
+float[] actual_speed = new float[0];
 float[] time = new float[60];
-float[] time_stamps = new float;
+float[] time_stamps = new float[60];
 String[] legend_strings = {"Reference", "Buggy Speed"};
 //maybe change to a string later depending on if we want more to parse 
 //or not
@@ -56,17 +56,18 @@ void setup() {
   plot.setTitleText("Buggy speed in response to the given profile");
   plot.getXAxis().setAxisLabelText("Time (seconds)");
   plot.getYAxis().setAxisLabelText("Speed cm/s");
+  
   plot.setBgColor(50);
   plot.setLabelBgColor(50);
   plot.setAllFontProperties("arial", 255, 16);
+  
   plot.setXLim(0, 60);
   plot.setYLim(0, 50);
   
-  // Add the points
-  plot.setPoints(points);
-  
-  int centerX = width / 2;
-  int sliderW = 300, sliderH = 40;
+  plot.setLineColor(color(50, 100, 200));
+  plot.setLineWidth(2);
+  plot.setPointColor(color(50, 100, 200));
+  plot.setPointSize(2);
   
   // Speed: -100 reverse → 0 stop → 100 forward
   /*cp5.addSlider("speed")
@@ -116,6 +117,8 @@ void draw() {
     }
   }
   */
+  plot.setPoints(points);
+  
   background(50);
   plot.beginDraw();
   plot.drawBackground();
@@ -123,8 +126,9 @@ void draw() {
   plot.drawXAxis();
   plot.drawYAxis();
   plot.drawTitle();
+  plot.drawGridLines(GPlot.BOTH);
   plot.drawPoints();
-  plot.drawGridLines(2);
+  plot.drawLines();
   //plot.drawLegend(legend_strings, time, actual_speed);
   plot.endDraw();
   
@@ -176,7 +180,7 @@ void draw() {
   */
   
   if (submitted) {
-    for (int i = 0; i < textval.length; i++) {
+    for (int i = 0; i < textval.length(); i++) {
       if (textval.charAt(i) == ';')
          count++;
     }
@@ -187,15 +191,18 @@ void draw() {
       reference_speed_array[i] = Float.parseFloat(numbers[1]);
     }
   }
-  if (millis() - lastStepTime > 1000) {
-      for (i = 0; i < time_stamps.length; i++) {
-        while (new_count < time_stamps[i]) 
-          //plot.addPoint
-          new_count++;
-      }      
-      lastStepTime = millis();
   
+  if (submitted && millis() - lastStepTime > 1000) {
+    if (new_count < 60) {
+      points.add(new_count, reference_speed_array[0]);
+      new_count++;
+      lastStepTime = millis();
+    } else {
+      new_count = 0;
+      submitted = false;
+    }
   }
+  
 }
 
 
@@ -226,7 +233,7 @@ void speed(int val) {  // ADD THIS
 
 void Submit() {
   textval = cp5.get(Textfield.class, "Input a command").getText();
-  client.write(textval + "\n");
+  //client.write(textval + "\n");
   print(" Command = " + textval);
   println();
   submitted = true;
