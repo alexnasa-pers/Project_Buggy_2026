@@ -194,13 +194,13 @@ void draw() {
   }
   
   if (submitted && millis() - lastStepTime > 1000) {
-    if (new_count < 60) {
-      points.add(new_count, reference_speed_array[0]);
+    if (new_count <= 60) {
+      points.add(new_count, reference_speed_array[j]);
       new_count++;
+      lastStepTime = millis();
       if (new_count == time_stamps[j]) {
         j++;
       }
-      lastStepTime = millis();
     } else {
       new_count = 0;
       submitted = false;
