@@ -32,6 +32,7 @@ int lastStepTime = 0;
 int step = 0;
 int count = 0;
 int new_count = 0;
+int j = 0;
 boolean submitted = false;
  
 GPointsArray points = new GPointsArray(nPoints);
@@ -196,6 +197,9 @@ void draw() {
     if (new_count < 60) {
       points.add(new_count, reference_speed_array[0]);
       new_count++;
+      if (new_count == time_stamps[j]) {
+        j++;
+      }
       lastStepTime = millis();
     } else {
       new_count = 0;
