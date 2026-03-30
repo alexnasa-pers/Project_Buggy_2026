@@ -214,7 +214,7 @@ void parseArray(const arduino::String& input)
 {
     std::string c_input(input.c_str()); //convert arduino string to c style  string 
 
-    std::regex pair_re(R"((d+\.?\d*) : (d+\.?\d*))");
+    std::regex pair_re(R"((\d+\.?\d*)\s*:\s*(\d+\.?\d*))");
     std::sregex_iterator begin(c_input.begin(), c_input.end(), pair_re);
     std::sregex_iterator end ;
     int i = 0;
