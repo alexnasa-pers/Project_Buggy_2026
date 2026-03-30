@@ -7,14 +7,21 @@
 #include <string>
 #include "DigiEncoder.h"
 
-int now = 0;
+unsigned long now = 0;
 bool firstpass = true;
 int lastSpeed = 0;
 bool printed = false;
+char aBuffer[20];
+int stoaw(double speed){
+
+        double aw = (0.0887*(pow(speed,3)) - 3.8797*(pow(speed,2)) + 59.598*speed - 172.99);
+        return constrain(int(aw), 0, 255);
+    }
+
 //bron yallej version
 //CHUD-LI CODE!!!
 //Driver class constructor 
-L293D driver(8, 9, 6, 10, 2, 5);
+L293D driver(8, 9, 10, 2, 11, 5);
 //IR sensor constructors
 TCRT5000 leftsensor(6);
 TCRT5000 rightsensor(7);
@@ -32,7 +39,7 @@ int status = WL_IDLE_STATUS;
 
 //Speed control over GUI
 int GUISpeed = 0;
-float SpeedVal = 0.0;
+float SpeedVal = 180;
 //checking the ping
 bool CheckedPing = false;
 //controls the driving loop function 
@@ -50,36 +57,57 @@ int speeds[7] = {0, 0, 0, 0, 0, 0, 0};
 // --- PID constants (tune these for your system) ---
 
 
-double Kp = 2.0;
-double Ki = 5.0;
-double Kd = 1.0;
+double Kp = 1;  //dont change
+double Ki = 0.001; //goodfornow
+double Kd = 0.00001; //goodfornow
 
 // --- PID variables ---
 unsigned long currentTime, previousTime;
 double elapsedTime;
 double error, lastError;
 double input, output, setPoint;
-double cumError, rateError;
-
+long double cumError, rateError;
 
 double computePID(double inp) {
-  currentTime = millis();
-  elapsedTime = (double)(currentTime - previousTime);
+  currentTime  = millis();
+  elapsedTime  = max((double)(currentTime - previousTime), 1.0);
 
-  error = setPoint - inp;
-  cumError += error * elapsedTime;
+  error     = setPoint - inp;              // both in cm/s
   rateError = (error - lastError) / elapsedTime;
 
-  double out = Kp * error + Ki * cumError + Kd * rateError;
+  double out = 10.5 * Kp * error + Ki * cumError + Kd * rateError;
 
-  // --- Prevent integral wind-up ---
-  out = constrain(out, 0, 255);  
+  // Anti-windup: only integrate when not fully saturated
+  double unclamped = out;
+  out = constrain(out, 0, 255);
 
-  lastError = error;
+  if (unclamped == out) {                  // only if not clamped
+    cumError += error * elapsedTime;
+    cumError = constrain(cumError, -5000, 5000);
+  }
+
+  lastError    = error;
   previousTime = currentTime;
+    // Serial.print("[PID] SP=");
+    // Serial.print(setPoint, 2);
+    // Serial.print("  inp=");
+    // Serial.print(inp, 2);
+    // Serial.print("  err=");
+    // Serial.print(error, 2);
+    // Serial.print("  dErr=");
+    // Serial.print(dtostrf(rateError, 4,1, aBuffer));
+    // Serial.print("  Iterm=");
+    // Serial.print(dtostrf(cumError, 2,1,aBuffer));
+    // Serial.print("  out(raw)=");
+    // Serial.print(out, 2);    // before you map/scale if you still do that
+    // Serial.print("  dt(ms)=");
+    // Serial.println(elapsedTime, 2);
 
-  return out;
+  else {
+  return out;   // PWM
+  }
 }
+
 
 
 
@@ -92,16 +120,17 @@ const int ENC_RESET_PIN = A1;
 // Wheel constants
 const float WHEEL_DIAMETER_CM = 6.5;
 const int PULSES_PER_REV = 8;
-const float WHEEL_CIRCUMFERENCE_CM = 20.4;
-const float DISTANCE_PER_PULSE_CM = 2.55;
+const float WHEEL_CIRCUMFERENCE_CM = 21;
+const float DISTANCE_PER_PULSE_CM = 2.625;
 
 //Speed and distance
+volatile unsigned long pulseCount = 0;
 volatile unsigned long lastPulseTime = 0;
 volatile unsigned long pulseInterval = 0;
 volatile int oldCount = 0;
 volatile float GlobalDistance = 0;
 volatile float instantSpeed = 0;
-
+volatile bool speedUpdateNeeded = false;
 //debugging
 volatile float MoveStartDistance = 0;  // add this global
 
@@ -114,24 +143,46 @@ WiFiServer server(5200);
 WiFiClient client;
 
 void EncoderISR(){
-  unsigned long now = micros();
-  //int currentCount = DigiEncoder.Count;
-  byte count = readCounter();
-  if (lastPulseTime != 0) {
-    pulseInterval = now - lastPulseTime;
-    if (pulseInterval > 0) {
-      float timeSec = pulseInterval / 1000000.0;
-      instantSpeed = DISTANCE_PER_PULSE_CM / timeSec;
-    }
-  } 
-
-
-  DigiEncoder.Increase();
-  isFired = true;
-  lastPulseTime = now;
- 
+    pulseCount++;
+    lastPulseTime = micros();
+    speedUpdateNeeded = true;
 }
+void updateSpeed() {
+  static unsigned long lastUpdate   = 0;
+  static unsigned long lastCount    = 0;   // total pulses at last update
 
+  unsigned long now = millis();
+
+  // Update every 300 ms
+  if (now - lastUpdate >= 1000) {
+    float timeSeconds = (now - lastUpdate) / 1000.0;
+
+    // Atomically read the current total count
+    noInterrupts();
+    unsigned long currentCount = pulseCount;   // pulseCount is the ISR-accumulated total
+    interrupts();
+
+    // Pulses since last update
+    unsigned long pulsesInPeriod = currentCount - lastCount;
+
+    if (pulsesInPeriod > 0 && timeSeconds > 0) {
+      instantSpeed = (pulsesInPeriod * DISTANCE_PER_PULSE_CM) / timeSeconds;
+    } else {
+      instantSpeed = 0;
+    }
+
+    lastCount  = currentCount;
+    lastUpdate = now;
+
+    // Debug
+    Serial.print("[updateSpeed] pulses: ");
+    Serial.print(pulsesInPeriod);
+    Serial.print(", time: ");
+    Serial.print(timeSeconds, 3);
+    Serial.print(", speed: ");
+    Serial.println(instantSpeed, 2);
+  }
+}
 
 void encoderBegin() {
   pinMode(ENC_DATA_PIN, INPUT);
@@ -208,7 +259,7 @@ void DrivingLogic(){
     }
     //straight ahead if both are dark
     if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8);
+        driver.setspeed(1);
         //direction = 1 ;
  
 }
@@ -217,27 +268,27 @@ void DrivingLogic(){
 //speed variable version of main loop
 void DrivingLogic(float SpeedVal){
     if (leftsensor.bright() && rightsensor.dark()){
-        driver.setLspeed(0.6*SpeedVal);
+        driver.setLspeed(SpeedVal);
         driver.setRspeed(1.3*SpeedVal);
         //direction = 2 ;
   
     }
     if (leftsensor.dark() && rightsensor.bright()){
-        driver.setLspeed(1.3*SpeedVal);
-        driver.setRspeed(0.4*SpeedVal);
+        driver.setLspeed(SpeedVal);
+        driver.setRspeed(0.7*SpeedVal);
         //direction = 3;
 
     }
    
     if (leftsensor.bright() && rightsensor.bright()){
-        driver.setLspeed(0*SpeedVal);
-        driver.setRspeed(0.5*SpeedVal);
+        driver.setLspeed(SpeedVal);
+        driver.setRspeed(0*SpeedVal);
         // direction = 5;
 
         
     }
     if (leftsensor.dark() && rightsensor.dark()){
-        driver.setspeed(0.8*SpeedVal);
+        driver.setspeed(SpeedVal);
         // direction = 1 ;
   
 
@@ -246,6 +297,7 @@ void DrivingLogic(float SpeedVal){
 
 
 void setup() {
+    DigiEncoder.EncBegin();
      // Target position = 0 degrees
     attachInterrupt(digitalPinToInterrupt(3), EncoderISR, CHANGE);
     //open serial port at baud rate 115200
@@ -276,7 +328,8 @@ void setup() {
 
 void loop() {
 
-    cmd = "ARRAY: 0:10 10:20 20:10 30:10 40:30 50:10 60:20";
+    cmd = "ARRAY: 0:10 10:20 20:30 30:10 40:25 50:15 60:10";
+    //cmd = "ARRAY: 0:15 10:15 20:15 30:15 40:15 50:15 60:15";
     parseArray(cmd);
     if (!printed){
     for (int j= 0; j < 7; j++){
@@ -309,41 +362,67 @@ void loop() {
     ctrl = true;
     if (speeds[0] != 0){
         Serial.println("1");
-        DrivingLogic(speeds[0]);
+        DrivingLogic(180);
         now = millis();
-        for (int i = 0; i < 7; i++){
-            Serial.println("2");
-            if (lastSpeed != 0 && lastSpeed != speeds[i]){
-                firstpass = true;
-            }
-            if (firstpass){
-            DrivingLogic(speeds[i]);
-            firstpass = false;
-            Serial.println("3");
+        if (speeds[0] != 0) {
+            previousTime = millis();  // initialise PID timer
+            unsigned long segmentStart = millis();
 
-            }
-            while ((now - (times[i]*1000) > 0) && ctrl ){
-              
-                now = millis();
+            for (int i = 0; i < 7; i++) {
+                    // RESET PID when target changes
+                cumError = 0;
+                lastError = 0;
+                previousTime = millis();
+                
                 setPoint = speeds[i];
-                input = instantSpeed;        // Read sensor or encoder input
-                SpeedVal = computePID(input);    // Get PID output
-                //Serial.println(SpeedVal);
-                Serial.println(instantSpeed);
-                Serial.println(DigiEncoder.Count);
-                DrivingLogic(SpeedVal);
-                if ((now - (times[i]*1000) == 30)){
-                    Serial.println("5");
-                    lastSpeed = speeds[i];
-                    }
+                unsigned long duration = (i == 0) ? (unsigned long)times[0]
+                                                : (unsigned long)(times[i] - times[i-1]);
+                duration *= 1000UL;
+                segmentStart = millis();
 
+                Serial.print("Segment "); Serial.print(i);
+                Serial.print(" duration: "); Serial.println(duration);
+
+                while ((millis() - segmentStart) < duration && ctrl) {
+
+                    updateSpeed();
+
+                    input = instantSpeed;
+                    SpeedVal = computePID(input/255);
+                    
+                    // Comprehensive debug every 200ms
+                    static unsigned long lastDebug = 0;
+                    if (millis() - lastDebug > 5000) {
+                        Serial.print("Seg ");
+                        Serial.print(i);
+                        Serial.print(" | Target: ");
+                        Serial.print(speeds[i]);
+                        Serial.print("cm/s (");
+                        Serial.print(setPoint);
+                        Serial.print(") | Actual: ");
+                        Serial.print(instantSpeed);
+                        Serial.print("cm/s (");
+                        Serial.print(input);
+                        Serial.print(") | Err: ");
+                        Serial.print(error);
+                        Serial.print(" | Out: ");
+                        Serial.print(SpeedVal);
+                        Serial.print(" | Cnt: ");
+                        Serial.println(pulseCount);
+                        lastDebug = millis();
+                    }
+                    DrivingLogic(SpeedVal);
+                }
+                lastSpeed = speeds[i];
+            }
+        }
             
 
                         }
                     }
 
-                }
-            }
+
+        
         
             
 
