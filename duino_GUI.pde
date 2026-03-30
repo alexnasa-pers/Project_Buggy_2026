@@ -1,5 +1,5 @@
 //Laptop IP 10.94.44.136
-//Duino IP 10.94.44.124
+//Duino IP 
 
 import processing.net.*;
 import controlP5.*;
@@ -12,8 +12,9 @@ String status = "Connect to Arduino IP";
 
 //important arrays
 float[] reference_speed_array = new float[60];
-float[] actual_speed = new float[0];
-float[] time = new float[60];
+float actual_speed = 0;
+float actual_time = 0;
+float start_time = 0;
 float[] time_stamps = new float[60];
 String[] legend_strings = {"Reference", "Buggy Speed"};
 
@@ -37,6 +38,7 @@ float totalTimePoints = 0;
 
 //chart points
 GPointsArray points;
+GPointsArray points2;
 GPlot plot;
 
 void setup() {
@@ -47,9 +49,6 @@ void setup() {
   plot = new GPlot(this, width/9, height - 925, width - 200, 650);
   cp5 = new ControlP5(this);
   int btnW = 150, btnH = 80, btnY = 120;
-  for (int i = 0; i < time.length; i++) {
-  time[i] = i;
-  }
   
   // Set the plot title and the axis labels
   plot.setTitleText("Buggy speed in response to the given profile");
@@ -84,9 +83,10 @@ void setup() {
 
   textFont(font);
   
-  client = new Client(this, "172.20.10.9", 5200);  // duino IP
+  client = new Client(this, "10.92.78.124", 5200);  // duino IP
   
   points = new GPointsArray();
+  points2 = new GPointsArray();
   plot.setPoints(points);
 }
 
@@ -95,13 +95,14 @@ void draw() {
   if (client == null || !client.active()) {
     status = "Reconnecting...";
     try {
-      client = new Client(this, "172.20.10.9", 5200);
+      client = new Client(this, "10.92.78.124", 5200);
     } catch (Exception e) {
       client = null;  
     }
   }
   //set points
-  plot.setPoints(points);
+  //plot.setPoints(points);
+  plot.setPoints(points2);
   
   background(50);
   plot.beginDraw();
@@ -127,17 +128,29 @@ void draw() {
   text("Reference : ", 250, height - 175);
   text(reference_speed, width/2, height - 175);
   text("cm/second", 500, height - 175);
-  text("Actual speed : ", 250, height - 150);
+  text("MSE : ", 250, height - 150);
   text(current_speed, width/2, height - 150);
   text("cm/second", 500, height - 150);
- 
-  if (client != null && client.active() && client.available() > 0) {  
+  
+  if (client != null && client.active() && client.available() > 0) {
+    
     String response = client.readStringUntil('\n');
     if (response != null) {
       response = response.trim();
       println("Raw:", response);
-    }
+      if (response.startsWith("SPD: ")) {
+        actual_speed = Float.parseFloat(response.substring(5));
+        actual_time = (millis() - start_time)/1000;
+        points2.add(actual_time, actual_speed);
+      }
+      if (response.startsWith("MSE: ")) {
+         current_speed = response.substring(5);
+      }
+    } 
+    
   }
+  
+   
   
   
   if (submitted && millis() - lastStepTime > 100) {
@@ -148,6 +161,7 @@ void draw() {
       if (currentPointIndex == sum_of_stamps_so_far) {
         sum_of_stamps_so_far += time_stamps[which_duration];
         which_duration++;
+        println("Index of timestamps: " + which_duration);
       }
     } else {
         submitted = false;
@@ -161,9 +175,10 @@ void Submit() {
   //Prints the thing at the bottom and gets the string
   textval = cp5.get(Textfield.class, "Input a command").getText();
   print(" Command = " + textval);
+  client.write(textval);
   println();
   
-  String[] pairs = textval.split("; ");
+  String[] pairs = textval.split(": ");
   int numPoints = 0;
   
   for (int i = 0; i < pairs.length; i++) {
@@ -192,11 +207,13 @@ void Submit() {
   
   
   points = new GPointsArray();
+  points2 = new GPointsArray();
   plot.setPoints(points);
+  plot.setPoints(points2);
+  
   
   submitted = true;
   lastStepTime = millis();
-  
+  start_time = millis();
   cp5.get(Textfield.class, "Input a command").clear();
 }
-
