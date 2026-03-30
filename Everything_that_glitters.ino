@@ -7,6 +7,9 @@
 #include <string>
 #include "DigiEncoder.h"
 
+
+unsigned long MSE = 0;
+unsigned long MSEcounter = 0;
 unsigned long now = 0;
 bool firstpass = true;
 int lastSpeed = 0;
@@ -57,7 +60,7 @@ int speeds[7] = {0, 0, 0, 0, 0, 0, 0};
 // --- PID constants (tune these for your system) ---
 
 
-double Kp = 1;  //dont change
+double Kp = 10.5;  //dont change
 double Ki = 0.001; //goodfornow
 double Kd = 0.00001; //goodfornow
 
@@ -75,7 +78,7 @@ double computePID(double inp) {
   error     = setPoint - inp;              // both in cm/s
   rateError = (error - lastError) / elapsedTime;
 
-  double out = 10.5 * Kp * error + Ki * cumError + Kd * rateError;
+  double out = Kp * error + Ki * cumError + Kd * rateError;
 
   // Anti-windup: only integrate when not fully saturated
   double unclamped = out;
@@ -85,7 +88,8 @@ double computePID(double inp) {
     cumError += error * elapsedTime;
     cumError = constrain(cumError, -5000, 5000);
   }
-
+  MSE += pow(error,2);
+  MSEcounter += 1;
   lastError    = error;
   previousTime = currentTime;
     // Serial.print("[PID] SP=");
@@ -103,10 +107,10 @@ double computePID(double inp) {
     // Serial.print("  dt(ms)=");
     // Serial.println(elapsedTime, 2);
 
-  else {
+
   return out;   // PWM
   }
-}
+
 
 
 
@@ -210,7 +214,7 @@ void parseArray(const arduino::String& input)
 {
     std::string c_input(input.c_str()); //convert arduino string to c style  string 
 
-    std::regex pair_re(R"((-?\d+\.?\d*):(-?\d+\.?\d*))");
+    std::regex pair_re(R"((d+\.?\d*) : (d+\.?\d*))");
     std::sregex_iterator begin(c_input.begin(), c_input.end(), pair_re);
     std::sregex_iterator end ;
     int i = 0;
@@ -328,7 +332,7 @@ void setup() {
 
 void loop() {
 
-    cmd = "ARRAY: 0:10 10:20 20:30 30:10 40:25 50:15 60:10";
+    //cmd = "ARRAY: 0:10 10:20 20:30 30:10 40:25 50:15 60:10";
     //cmd = "ARRAY: 0:15 10:15 20:15 30:15 40:15 50:15 60:15";
     parseArray(cmd);
     if (!printed){
@@ -341,14 +345,14 @@ void loop() {
         }
     printed = true;
     }
-    // if (!client){client = server.available ();}
+    if (!client){client = server.available ();}
 
-    // if (client) {   
-    //     if (!said_hello) {
-    //         client.println("Hello Client");
-    //         said_hello = true;
-    //     }
-    // }
+    if (client) {   
+        if (!said_hello) {
+            client.println("Hello Client");
+            said_hello = true;
+        }
+    }
   
     if(speeds[0] == 0){
         Serial.println("hey");
@@ -356,10 +360,23 @@ void loop() {
         cmd = client.readStringUntil('\n');
         if (cmd.substring(0,6) == ("ARRAY:")){
             parseArray(cmd);
+            Serial.print("TIMES: ");
+            client.write("TIMES: ");
+            for (int i = 0; i < 7; i++){
+                client.write(times[i]);
+                Serial.print(times[i]);
+            }
+            Serial.println();
+            client.write("SPEEDS: ");
+            Serial.println("SPEEDS: ");
+            for (int i = 0; i < 7; i++){
+                client.write(speeds[i]);
+                Serial.print(speeds[i]);
+            }
             ctrl = true;
         }
     }
-    ctrl = true;
+    
     if (speeds[0] != 0){
         Serial.println("1");
         DrivingLogic(180);
@@ -389,7 +406,7 @@ void loop() {
 
                     input = instantSpeed;
                     SpeedVal = computePID(input/255);
-                    
+                    client.write(instantSpeed);
                     // Comprehensive debug every 200ms
                     static unsigned long lastDebug = 0;
                     if (millis() - lastDebug > 5000) {
@@ -414,6 +431,11 @@ void loop() {
                     DrivingLogic(SpeedVal);
                 }
                 lastSpeed = speeds[i];
+                if (i == 6){
+                    ctrl = false;
+                    MSE = MSE / MSEcounter;
+                    client.write("MSE: ", MSE);
+                }
             }
         }
             
