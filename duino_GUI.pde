@@ -11,32 +11,26 @@ ControlP5 cp5;
 String status = "Connect to Arduino IP";
 
 //important arrays
-float[] reference_speed_array = new float[60];
+float[] reference_speed_array = new float[10];
 float actual_speed = 0;
 float actual_time = 0;
 float start_time = 0;
 float[] time_stamps = new float[60];
-String[] legend_strings = {"Reference", "Buggy Speed"};
+String[] legend_strings = new String[2];
 
 //Strings for things 
-String reference_speed = "0";
-String current_speed = "0";
 String textval = "";
-
+String sse = "";
 //misc floats
-float sse = 0;
-float sum_of_stamps_so_far = 0;
 int lastStepTime = 0;
-int step = 0;
-int count = 0;
 int numPoints = 0;
-int new_count = 0;
-int which_duration = 0;
+int speed_index = 0;
 boolean submitted = false;
-float sum = 0;
 int currentPointIndex = 0;
+int x_length = 60;
+int y_length = 60;
+float sum_of_stamps_so_far = 0;
 float totalTimePoints = 0;
-
 //chart points
 GPointsArray points;
 GPointsArray points2;
@@ -62,8 +56,8 @@ void setup() {
   plot.setLabelBgColor(50);
   plot.setAllFontProperties("arial", 255, 16);
   
-  plot.setXLim(0, 60);
-  plot.setYLim(0, 50);
+  plot.setXLim(0, x_length);
+  plot.setYLim(0, y_length);
   
   plot.setLineColor(color(50, 100, 200));
   plot.setLineWidth(2);
@@ -75,6 +69,7 @@ void setup() {
   plot.getLayer("speed").setPointColor(color(200, 50, 50));
   plot.getLayer("speed").setLineWidth(2);
   plot.getLayer("speed").setPointSize(2);
+  plot.getLayer("speed").setAllFontProperties("arial", 0, 16);
   
   cp5.addTextfield("Input a command")
      .setPosition(width/4, height-100)
@@ -110,6 +105,8 @@ void draw() {
   //set points
   plot.setPoints(points);
   plot.getLayer("speed").setPoints(points2);
+  legend_strings[0] = "Reference: " + nf(reference_speed_array[speed_index], 1, 1) + " cm/s";
+  legend_strings[1] = "Actual: " + nf(actual_speed, 1, 1) + " cm/s";
   
   background(50);
   plot.beginDraw();
@@ -121,8 +118,7 @@ void draw() {
   plot.drawGridLines(GPlot.BOTH);
   plot.drawPoints();
   plot.drawLines();
-  //REMINDER: MAKE LEGEND WORK
-  //plot.drawLegend(legend_strings, time, actual_speed);
+  plot.drawLegend(legend_strings, new float[]{0.75, 0.75}, new float[]{0.95, 0.90});
   plot.endDraw();
   
   if (client != null && client.active() && client.available() > 0) {
@@ -143,8 +139,8 @@ void draw() {
       }
       if (response.startsWith("MSE: ")) {
          try {
-          current_speed = response.substring(5);
-          Float.parseFloat(current_speed); // validate it's actually a number
+          sse = response.substring(5);
+          Float.parseFloat(sse); // validate it's actually a number
         } catch (NumberFormatException e) {
           println("Skipping malformed MSE line: " + response);
         }
@@ -152,23 +148,8 @@ void draw() {
     } 
     
   }
-  if (submitted) {
-    points = new GPointsArray();
-    
-    float t = 0;
-    for (int i = 0; i < numPoints; i++) {
-      float t_end = t + time_stamps[i];
-      
-      if (i > 0) points.add(t, reference_speed_array[i]);  
-      points.add(t,     reference_speed_array[i]);          
-      points.add(t_end, reference_speed_array[i]); 
-      
-      t = t_end;
-    }
-    
-    plot.setPoints(points);
-    submitted = false;
-  }
+  
+  //OLD version - broken
   /*
   if (submitted && millis() - lastStepTime > 1000) {
     if (currentPointIndex < time_stamps[which_duration+1]) {
@@ -185,21 +166,51 @@ void draw() {
         currentPointIndex = 0;
         which_duration = 0;
     }
-    
+
   }
   */
+  
+  //LIVE version - plots reference speed value every second 
+  if (submitted && millis() - lastStepTime > 100) {
+    //checking if there is a next timestamp
+    if (speed_index+1 < time_stamps.length) {
+      //checking if the index reached the next timestamp
+      if (currentPointIndex < time_stamps[speed_index+1]) {
+        points.add(currentPointIndex, reference_speed_array[speed_index]);
+        lastStepTime = millis();
+        currentPointIndex++;
+      } else {
+        speed_index++;
+        points.add(currentPointIndex, reference_speed_array[speed_index]);
+        lastStepTime = millis();
+      }
+    //if not, plot until 60
+    } else {
+      if (currentPointIndex <= x_length) {
+        points.add(currentPointIndex, reference_speed_array[speed_index]);
+        lastStepTime = millis();
+        currentPointIndex++;
+      } else {
+        submitted = false;
+        speed_index = 0;
+        currentPointIndex = 0;
+      }  
+    }
+  }
+  
   fill(255);
   textSize(20);
   textAlign(CENTER, CENTER);
   text("Buggy Control", width/2, 40);
- 
-  text(status, width/2, height-200 );
-  
-  text("Reference : ", 250, height - 175);
-  text(reference_speed, width/2, height - 175);
+  text(status, width/2, height- 225 );
+  text("Reference : ", 250, height - 200);
+  text(reference_speed_array[speed_index], width/2, height - 200);
+  text("cm/second", 500, height - 200);
+  text("Actual: ", 250, height - 175);
+  text(actual_speed, width/2, height - 175);
   text("cm/second", 500, height - 175);
   text("MSE : ", 250, height - 150);
-  text(current_speed, width/2, height - 150);
+  text(sse, width/2, height - 150);
 }
 
 void Submit() {
