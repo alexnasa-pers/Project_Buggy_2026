@@ -29,6 +29,7 @@ float sum_of_stamps_so_far = 0;
 int lastStepTime = 0;
 int step = 0;
 int count = 0;
+int numPoints = 0;
 int new_count = 0;
 int which_duration = 0;
 boolean submitted = false;
@@ -48,6 +49,8 @@ void setup() {
   
   plot = new GPlot(this, width/9, height - 925, width - 200, 650);
   cp5 = new ControlP5(this);
+  points = new GPointsArray();
+  points2 = new GPointsArray();
   int btnW = 150, btnH = 80, btnY = 120;
   
   // Set the plot title and the axis labels
@@ -67,6 +70,12 @@ void setup() {
   plot.setPointColor(color(50, 100, 200));
   plot.setPointSize(2);
   
+  plot.addLayer("speed", points2);
+  plot.getLayer("speed").setLineColor(color(200, 50, 50));
+  plot.getLayer("speed").setPointColor(color(200, 50, 50));
+  plot.getLayer("speed").setLineWidth(2);
+  plot.getLayer("speed").setPointSize(2);
+  
   cp5.addTextfield("Input a command")
      .setPosition(width/4, height-100)
        .setSize(300, 40)
@@ -83,10 +92,8 @@ void setup() {
 
   textFont(font);
   
-  client = new Client(this, "10.92.78.124", 5200);  // duino IP
+  client = new Client(this, "172.20.10.9", 5200);  // duino IP
   
-  points = new GPointsArray();
-  points2 = new GPointsArray();
   plot.setPoints(points);
 }
 
@@ -95,14 +102,14 @@ void draw() {
   if (client == null || !client.active()) {
     status = "Reconnecting...";
     try {
-      client = new Client(this, "10.92.78.124", 5200);
+      client = new Client(this, "172.20.10.9", 5200);
     } catch (Exception e) {
       client = null;  
     }
   }
   //set points
-  //plot.setPoints(points);
-  plot.setPoints(points2);
+  plot.setPoints(points);
+  plot.getLayer("speed").setPoints(points2);
   
   background(50);
   plot.beginDraw();
@@ -118,43 +125,53 @@ void draw() {
   //plot.drawLegend(legend_strings, time, actual_speed);
   plot.endDraw();
   
-  fill(255);
-  textSize(20);
-  textAlign(CENTER, CENTER);
-  text("Buggy Control", width/2, 40);
- 
-  text(status, width/2, height-200 );
-  
-  text("Reference : ", 250, height - 175);
-  text(reference_speed, width/2, height - 175);
-  text("cm/second", 500, height - 175);
-  text("MSE : ", 250, height - 150);
-  text(current_speed, width/2, height - 150);
-  text("cm/second", 500, height - 150);
-  
   if (client != null && client.active() && client.available() > 0) {
     
     String response = client.readStringUntil('\n');
+    
     if (response != null) {
       response = response.trim();
       println("Raw:", response);
       if (response.startsWith("SPD: ")) {
-        actual_speed = Float.parseFloat(response.substring(5));
-        actual_time = (millis() - start_time)/1000;
-        points2.add(actual_time, actual_speed);
+        try {
+          actual_speed = Float.parseFloat(response.substring(5));
+          actual_time = (millis() - start_time) / 1000;
+          points2.add(actual_time, actual_speed);
+        } catch (NumberFormatException e) {
+          println("Skipping malformed SPD line: " + response);
+        }
       }
       if (response.startsWith("MSE: ")) {
-         current_speed = response.substring(5);
+         try {
+          current_speed = response.substring(5);
+          Float.parseFloat(current_speed); // validate it's actually a number
+        } catch (NumberFormatException e) {
+          println("Skipping malformed MSE line: " + response);
+        }
       }
     } 
     
   }
-  
-   
-  
-  
-  if (submitted && millis() - lastStepTime > 100) {
-    if (currentPointIndex < totalTimePoints) {
+  if (submitted) {
+    points = new GPointsArray();
+    
+    float t = 0;
+    for (int i = 0; i < numPoints; i++) {
+      float t_end = t + time_stamps[i];
+      
+      if (i > 0) points.add(t, reference_speed_array[i]);  
+      points.add(t,     reference_speed_array[i]);          
+      points.add(t_end, reference_speed_array[i]); 
+      
+      t = t_end;
+    }
+    
+    plot.setPoints(points);
+    submitted = false;
+  }
+  /*
+  if (submitted && millis() - lastStepTime > 1000) {
+    if (currentPointIndex < time_stamps[which_duration+1]) {
       points.add(currentPointIndex, reference_speed_array[which_duration]);
       currentPointIndex++;
       lastStepTime = millis();
@@ -168,7 +185,21 @@ void draw() {
         currentPointIndex = 0;
         which_duration = 0;
     }
+    
   }
+  */
+  fill(255);
+  textSize(20);
+  textAlign(CENTER, CENTER);
+  text("Buggy Control", width/2, 40);
+ 
+  text(status, width/2, height-200 );
+  
+  text("Reference : ", 250, height - 175);
+  text(reference_speed, width/2, height - 175);
+  text("cm/second", 500, height - 175);
+  text("MSE : ", 250, height - 150);
+  text(current_speed, width/2, height - 150);
 }
 
 void Submit() {
@@ -179,7 +210,7 @@ void Submit() {
   println();
   
   String[] pairs = textval.split(": ");
-  int numPoints = 0;
+  numPoints = 0;
   
   for (int i = 0; i < pairs.length; i++) {
     String[] numbers = pairs[i].split(" ");
@@ -209,11 +240,12 @@ void Submit() {
   points = new GPointsArray();
   points2 = new GPointsArray();
   plot.setPoints(points);
-  plot.setPoints(points2);
+  plot.getLayer("speed").setPoints(points2);
   
   
   submitted = true;
   lastStepTime = millis();
-  start_time = millis();
+  
   cp5.get(Textfield.class, "Input a command").clear();
+  start_time = millis();
 }
