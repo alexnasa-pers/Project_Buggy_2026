@@ -7,7 +7,7 @@
 #include <string>
 #include "DigiEncoder.h"
 
-
+bool looped = false;
 unsigned long MSE = 0;
 unsigned long MSEcounter = 0;
 unsigned long now = 0;
@@ -35,8 +35,8 @@ DigiEncoder DigiEncoder(3, driver);
 //obstacle detection state boolean
 bool obstacle = false;
 //Network info 
-char ssid[] = "Jamie"; // your network SSID
-char pass[] = "GimmeDatBuggyUggy"; // your network password
+char ssid[] = "Alexiiphone"; // your network SSID
+char pass[] = "alexboiq"; // your network password
 //Wifi status, saves as int 0-6 0 = not connected 3 = connected 4 = bad credentials
 int status = WL_IDLE_STATUS;
 
@@ -54,15 +54,15 @@ String cmd = "";
 
 //Opens a server on port 5200
 
-int times[7] = {0, 0, 0, 0, 0, 0 ,0};
-int speeds[7] = {0, 0, 0, 0, 0, 0, 0};
+int times[6] = {0, 0, 0, 0, 0 ,0};
+int speeds[6] = {0, 0, 0, 0, 0, 0};
 
 // --- PID constants (tune these for your system) ---
 
 
-double Kp = 10.5;  //dont change
+double Kp = 14.5;  //dont change
 double Ki = 0.001; //goodfornow
-double Kd = 0.00001; //goodfornow
+double Kd = 0.0001; //goodfornow
 
 // --- PID variables ---
 unsigned long currentTime, previousTime;
@@ -215,7 +215,7 @@ void parseArray(const arduino::String& input)
 {
     std::string c_input(input.c_str()); //convert arduino string to c style  string 
 
-    std::regex pair_re(R"((\d+)\s+(\d+)\s*:)");
+    std::regex pair_re(R"((\d+)\s+(\d+)\s*:)?)");
     std::sregex_iterator begin(c_input.begin(), c_input.end(), pair_re);
     std::sregex_iterator end ;
     int i = 0;
@@ -332,119 +332,92 @@ void setup() {
 }
 
 void loop() {
-
-    //cmd = "ARRAY: 0:10 10:20 20:30 30:10 40:25 50:15 60:10";
-    //cmd = "ARRAY: 0:15 10:15 20:15 30:15 40:15 50:15 60:15";
     parseArray(cmd);
-    if (!printed){
-    for (int j= 0; j < 7; j++){
-        Serial.println(times[j]);
-    }
-    Serial.println();
-    for (int k = 0; k < 7; k++){
-        Serial.println(speeds[k]);
-        }
-    printed = true;
-    }
-    if (!client){client = server.available ();}
 
-    // if (client) {   
-    //     if (!said_hello) {
-    //         //client.println("Hello Client");
-    //         said_hello = true;
-    //     }
-    // }
-  
-    if(speeds[0] == 0){
-        Serial.println("hey");
-        //ctrl = false;
+    if (!printed) {
+        for (int j = 0; j < 6; j++) Serial.println(times[j]);
+        Serial.println();
+        for (int k = 0; k < 6; k++) Serial.println(speeds[k]);
+        printed = true;
+    }
+
+    if (!client) { client = server.available(); }
+
+    if (speeds[0] == 0) {
+        Serial.println("waiting...");
         cmd = client.readStringUntil('\n');
-        if (cmd.substring(0,6) == ("ARRAY:")){
+        if (cmd.substring(0, 6) == "ARRAY:") {
             parseArray(cmd);
-            Serial.print("TIMES: ");
-            //client.write("TIMES: ");
-            for (int i = 0; i < 7; i++){
-                //client.write(times[i]);
-                Serial.print(times[i]);
-            }
-            Serial.println();
-            //client.write("SPEEDS: ");
-            Serial.println("SPEEDS: ");
-            for (int i = 0; i < 7; i++){
-                //client.write(speeds[i]);
-                Serial.print(speeds[i]);
-            }
             ctrl = true;
         }
     }
-    
-    if (speeds[0] != 0){
-        Serial.println("1");
-        DrivingLogic(180);
-        now = millis();
-        if (speeds[0] != 0) {
-            previousTime = millis();  // initialise PID timer
+
+    if (speeds[0] != 0 && !looped) {
+        previousTime = millis();
+
+        for (int i = 0; i < 6; i++) {
+            if (speeds[i] == 0 && i > 0) {
+                // end of valid segments
+                driver.setspeed(0);
+                MSE = MSE / MSEcounter;
+                client.println("MSE: " + String(MSE));
+                memset(speeds, 0, sizeof(speeds));
+                memset(times,  0, sizeof(times));
+                MSE = 0; MSEcounter = 0;
+                break;
+            }
+
+            cumError = 0;
+            lastError = 0;
+            previousTime = millis();
+            setPoint = speeds[i];
+
+            unsigned long duration = (i == 0) ? (unsigned long)times[0]
+                                              : (unsigned long)(times[i] - times[i-1]);
+            duration *= 1000UL;
             unsigned long segmentStart = millis();
 
-            for (int i = 0; i < 7; i++) {
-                    // RESET PID when target changes
-                cumError = 0;
-                lastError = 0;
-                previousTime = millis();
-                
-                setPoint = speeds[i];
-                unsigned long duration = (i == 0) ? (unsigned long)times[0]
-                                                : (unsigned long)(times[i] - times[i-1]);
-                duration *= 1000UL;
-                segmentStart = millis();
+            Serial.print("Seg "); Serial.print(i);
+            Serial.print(" setpoint="); Serial.print(setPoint);
+            Serial.print(" duration="); Serial.println(duration);
 
-                // Serial.print("Segment "); Serial.print(i);
-                // Serial.print(" duration: "); Serial.println(duration);
+            while ((millis() - segmentStart) < duration) {
+                updateSpeed();
+                input = instantSpeed;
+                SpeedVal = computePID(input);
+                DrivingLogic(SpeedVal / 255.0);  
 
-                while ((millis() - segmentStart) < duration && ctrl) {
-
-                    updateSpeed();
-
-                    input = instantSpeed;
-                    SpeedVal = computePID(input/255);
+                static unsigned long lastSend = 0;
+                if (millis() - lastSend > 800) {
                     client.println("SPD: " + String(instantSpeed));
-                   
-                    // Comprehensive debug every 200ms
-                    static unsigned long lastDebug = 0;
-                    if (millis() - lastDebug > 5000) {
-                        Serial.print("Seg ");
-                        Serial.print(i);
-                        Serial.print(" | Target: ");
-                        Serial.print(speeds[i]);
-                        Serial.print("cm/s (");
-                        Serial.print(setPoint);
-                        Serial.print(") | Actual: ");
-                        Serial.print(instantSpeed);
-                        Serial.print("cm/s (");
-                        Serial.print(input);
-                        Serial.print(") | Err: ");
-                        Serial.print(error);
-                        Serial.print(" | Out: ");
-                        Serial.print(SpeedVal);
-                        Serial.print(" | Cnt: ");
-                        Serial.println(pulseCount);
-                        lastDebug = millis();
-                    }
-                    DrivingLogic(SpeedVal);
+                    lastSend = millis();
                 }
-                lastSpeed = speeds[i];
-                if (i == 6){
-                    //ctrl = false;
-                    MSE = MSE / MSEcounter;
-                    client.println("MSE: " + String(MSE));
-                }
+
+                static unsigned long lastDebug = 0;
+                if (millis() - lastDebug > 5000) {
+                    Serial.print("Seg "); Serial.print(i);
+                    Serial.print(" | SP: "); Serial.print(setPoint);
+                    Serial.print(" | Act: "); Serial.print(instantSpeed);
+                    Serial.print(" | Out: "); Serial.print(SpeedVal);
+                    Serial.print(" | Cnt: "); Serial.println(pulseCount);
+                    lastDebug = millis();
+                }  // ← debug if ends here, nothing else inside it
+            }
+
+            // last segment
+            if (i == 5 || speeds[i+1] == 0) {
+                driver.setspeed(0);
+                MSE = MSE / MSEcounter;
+                client.println("MSE: " + String(MSE));
+                memset(speeds, 0, sizeof(speeds));
+                memset(times,  0, sizeof(times));
+                MSE = 0; MSEcounter = 0;
+                looped = true;
+                break;
             }
         }
-            
-
-                        }
-                    }
-
+    }
+}
 
         
         
