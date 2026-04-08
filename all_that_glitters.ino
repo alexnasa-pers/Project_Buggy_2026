@@ -7,12 +7,13 @@
 #include <string>
 #include "DigiEncoder.h"
 
-bool looped = false;
+bool looping = false;
+
 unsigned long MSE = 0;
 unsigned long MSEcounter = 0;
 unsigned long now = 0;
 bool firstpass = true;
-int lastSpeed = 0;
+
 bool printed = false;
 char aBuffer[20];
 int stoaw(double speed){
@@ -54,15 +55,15 @@ String cmd = "";
 
 //Opens a server on port 5200
 
-int times[6] = {0, 0, 0, 0, 0 ,0};
-int speeds[6] = {0, 0, 0, 0, 0, 0};
+int times[7] = {0, 0, 0, 0, 0, 0 ,0};
+int speeds[7] = {0, 0, 0, 0, 0, 0, 0};
 
 // --- PID constants (tune these for your system) ---
 
 
-double Kp = 14.5;  //dont change
-double Ki = 0.001; //goodfornow
-double Kd = 0.0001; //goodfornow
+double Kp = 10.5;  //dont change
+double Ki = 0.00; //goodfornow
+double Kd = 0.00001; //goodfornow
 
 // --- PID variables ---
 unsigned long currentTime, previousTime;
@@ -83,7 +84,7 @@ double computePID(double inp) {
 
   // Anti-windup: only integrate when not fully saturated
   double unclamped = out;
-  out = constrain(out, 0, 255);
+  out = constrain(out, 60, 255);
 
   if (unclamped == out) {                  // only if not clamped
     cumError += error * elapsedTime;
@@ -159,7 +160,7 @@ void updateSpeed() {
   unsigned long now = millis();
 
   // Update every 300 ms
-  if (now - lastUpdate >= 1000) {
+  if (now - lastUpdate >= 800) {
     float timeSeconds = (now - lastUpdate) / 1000.0;
 
     // Atomically read the current total count
@@ -211,20 +212,40 @@ byte readCounter() {
   return shiftIn(ENC_DATA_PIN, ENC_CLOCK_PIN, MSBFIRST);
 }
 
-void parseArray(const arduino::String& input)
-{
-    std::string c_input(input.c_str()); //convert arduino string to c style  string 
+void parseArray(const arduino::String& input) {
+    Serial.print("Parsing raw: ");
+    Serial.println(input);
 
-    std::regex pair_re(R"((\d+)\s+(\d+)\s*:)?)");
-    std::sregex_iterator begin(c_input.begin(), c_input.end(), pair_re);
-    std::sregex_iterator end ;
+    // Reset arrays
+    for (int i = 0; i < 7; i++) {
+        times[i] = 0;
+        speeds[i] = 0;
+    }
+
+    const char* p = input.c_str();
     int i = 0;
-    for (std::sregex_iterator it = begin; it != end && i < 7 ; it++, i++) {
-        times[i] = (std::stoi((*it)[1].str()));
-        speeds[i] = (std::stoi((*it)[2].str()));
+    int t, s;
+
+    while (i < 7 && sscanf(p, " %d %d", &t, &s) == 2) {
+        times[i] = t;
+        speeds[i] = s;
+        i++;
+
+        // Move pointer past this pair
+        while (*p && *p != ' ') p++;   // skip first number
+        while (*p && *p == ' ') p++;   // skip spaces
+        while (*p && *p != ' ') p++;   // skip second number
+        while (*p && (*p == ' ' || *p == ':')) p++; // skip spaces/colon
+    }
+
+    Serial.print("Parsed ");
+    Serial.print(i);
+    Serial.println(" pairs");
+    for (int j = 0; j < i; j++) {
+        Serial.print("  times["); Serial.print(j); Serial.print("]="); Serial.print(times[j]);
+        Serial.print(" speeds["); Serial.print(j); Serial.print("]="); Serial.println(speeds[j]);
     }
 }
-
 
 
 //obstacle detection send timing
@@ -332,92 +353,144 @@ void setup() {
 }
 
 void loop() {
-    parseArray(cmd);
 
-    if (!printed) {
-        for (int j = 0; j < 6; j++) Serial.println(times[j]);
-        Serial.println();
-        for (int k = 0; k < 6; k++) Serial.println(speeds[k]);
-        printed = true;
+    //cmd = "ARRAY: 0 10 : 10 20 : 20 15 : 30 10 : 40 20 : 50 20";
+    //cmd = "ARRAY: 0:15 10:15 20:15 30:15 40:15 50:15 60:15";
+   
+    if (!printed){
+    for (int j= 0; j < 7; j++){
+        Serial.println(times[j]);
     }
+    Serial.println();
+    for (int k = 0; k < 7; k++){
+        Serial.println(speeds[k]);
+        }
+    printed = true;
+    }
+    if (!client){client = server.available ();}
 
-    if (!client) { client = server.available(); }
-
-    if (speeds[0] == 0) {
-        Serial.println("waiting...");
+    // if (client) {   
+    //     if (!said_hello) {
+    //         //client.println("Hello Client");
+    //         said_hello = true;
+    //     }
+    // }
+  
+    if(speeds[0] == 0){
+        Serial.println("hey");
+        //ctrl = false;
+        
+        if (client) {
         cmd = client.readStringUntil('\n');
-        if (cmd.substring(0, 6) == "ARRAY:") {
+        Serial.print(cmd);
+        parseArray(cmd);
+        }
+        
+        if (cmd != ""){
             parseArray(cmd);
+            Serial.print("TIMES: ");
+            //client.write("TIMES: ");
+            for (int i = 0; i < 6; i++){
+                //client.write(times[i]);
+                Serial.print(times[i]);
+            }
+            Serial.println();
+            //client.write("SPEEDS: ");
+            Serial.println("SPEEDS: ");
+            for (int i = 0; i < 6; i++){
+                //client.write(speeds[i]);
+                Serial.print(speeds[i]);
+            }
             ctrl = true;
         }
     }
-
-    if (speeds[0] != 0 && !looped) {
-        previousTime = millis();
-
-        for (int i = 0; i < 6; i++) {
-            if (speeds[i] == 0 && i > 0) {
-                // end of valid segments
-                driver.setspeed(0);
-                MSE = MSE / MSEcounter;
-                client.println("MSE: " + String(MSE));
-                memset(speeds, 0, sizeof(speeds));
-                memset(times,  0, sizeof(times));
-                MSE = 0; MSEcounter = 0;
-                break;
-            }
-
-            cumError = 0;
-            lastError = 0;
-            previousTime = millis();
-            setPoint = speeds[i];
-
-            unsigned long duration = (i == 0) ? (unsigned long)times[0]
-                                              : (unsigned long)(times[i] - times[i-1]);
-            duration *= 1000UL;
+    
+    if (speeds[0] != 0 && !looping){
+        Serial.println("1");
+        
+        now = millis();
+        if (speeds[0] != 0) {
+            previousTime = millis();  // initialise PID timer
             unsigned long segmentStart = millis();
 
-            Serial.print("Seg "); Serial.print(i);
-            Serial.print(" setpoint="); Serial.print(setPoint);
-            Serial.print(" duration="); Serial.println(duration);
-
-            while ((millis() - segmentStart) < duration) {
-                updateSpeed();
-                input = instantSpeed;
-                SpeedVal = computePID(input);
-                DrivingLogic(SpeedVal / 255.0);  
-
-                static unsigned long lastSend = 0;
-                if (millis() - lastSend > 800) {
-                    client.println("SPD: " + String(instantSpeed));
-                    lastSend = millis();
+            for (int i = 0; i < 7; i++) {
+                    // RESET PID when target changes
+                cumError = 0;
+                lastError = 0;
+                previousTime = millis();
+                
+                setPoint = speeds[i];
+                unsigned long duration;
+                if (i == 0){
+                 duration = times[1];}
+                else if (i < 5 && i != 0) {
+                duration = (unsigned long)(times[i + 1] - times[i]);
+                } 
+                else if (i == 5){
+                    duration = 60 - times[5];
                 }
+                else {
+                duration = 0; // last point has no next timestamp
+                }
+                Serial.print("Duration: ");
+                Serial.println(duration);
+                duration *= 1000UL;
+                segmentStart = millis();
 
-                static unsigned long lastDebug = 0;
-                if (millis() - lastDebug > 5000) {
-                    Serial.print("Seg "); Serial.print(i);
-                    Serial.print(" | SP: "); Serial.print(setPoint);
-                    Serial.print(" | Act: "); Serial.print(instantSpeed);
-                    Serial.print(" | Out: "); Serial.print(SpeedVal);
-                    Serial.print(" | Cnt: "); Serial.println(pulseCount);
-                    lastDebug = millis();
-                }  // ← debug if ends here, nothing else inside it
-            }
+                // Serial.print("Segment "); Serial.print(i);
+                // Serial.print(" duration: "); Serial.println(duration);
 
-            // last segment
-            if (i == 5 || speeds[i+1] == 0) {
-                driver.setspeed(0);
-                MSE = MSE / MSEcounter;
-                client.println("MSE: " + String(MSE));
-                memset(speeds, 0, sizeof(speeds));
-                memset(times,  0, sizeof(times));
-                MSE = 0; MSEcounter = 0;
-                looped = true;
-                break;
+                while ((millis() - segmentStart) < duration && ctrl) {
+
+                    updateSpeed();
+
+                    input = instantSpeed;
+                    SpeedVal = computePID(input/255);
+                    DrivingLogic(SpeedVal);
+                    static unsigned long lastStep = millis();
+                    if ((millis() - lastStep) > 900) {
+                        client.println("SPD: " + String(instantSpeed));
+                        lastStep = millis();
+                    }
+                    // Comprehensive debug every 200ms
+                    static unsigned long lastDebug = 0;
+                    if (millis() - lastDebug > 5000) {
+                        Serial.print("Seg ");
+                        Serial.print(i);
+                        Serial.print(" | Target: ");
+                        Serial.print(speeds[i]);
+                        Serial.print("cm/s (");
+                        Serial.print(setPoint);
+                        Serial.print(") | Actual: ");
+                        Serial.print(instantSpeed);
+                        Serial.print("cm/s (");
+                        Serial.print(input);
+                        Serial.print(") | Err: ");
+                        Serial.print(error);
+                        Serial.print(" | Out: ");
+                        Serial.print(SpeedVal);
+                        Serial.print(" | Cnt: ");
+                        Serial.println(pulseCount);
+                        lastDebug = millis();
+                        
+                    }
+                   
+                }
+                
+                if (i == 5){
+                    ctrl = false;
+                    MSE = MSE / MSEcounter;
+                    client.println("MSE: " + String(MSE));
+                    looping = true;
+                    driver.stopBuggy();
+                }
             }
         }
-    }
-}
+            
+
+                        }
+                    }
+
 
         
         
